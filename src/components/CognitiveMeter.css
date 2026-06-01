@@ -1,0 +1,42 @@
+.cognitive-meter {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.meter-svg {
+  display: block;
+}
+
+.meter-track {
+  stroke: var(--color-bg-surface);
+}
+
+.meter-center {
+  position: absolute;
+  top: calc(50% - 24px);
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.meter-score {
+  font-size: 56px;
+  font-weight: var(--font-weight-bold);
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.meter-badge {
+  margin-top: 12px;
+  padding: 4px 14px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: white;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+}

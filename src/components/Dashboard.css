@@ -1,0 +1,30 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--spacing-xl);
+  padding: var(--spacing-xl);
+}
+
+.dashboard-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-signals {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 420px;
+}
+
+.dashboard-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}

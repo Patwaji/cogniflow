@@ -1,0 +1,87 @@
+import { useState } from 'react'
+import useSignalsStore from '../store/signals'
+import './DebugOverlay.css'
+
+const SIGNALS = [
+  { key: 'blinkRate', label: 'Blink rate', color: '#5e5ce6' },
+  { key: 'pupilDelta', label: 'Pupil dilation', color: '#34c759' },
+  { key: 'browFurrow', label: 'Brow tension', color: '#ff9f0a' },
+  { key: 'gazeStability', label: 'Gaze stability', color: '#5ac8fa' },
+  { key: 'headMovement', label: 'Head stillness', color: '#ff453a' },
+]
+
+const FOCUS_COLORS = {
+  calibrating: 'var(--color-warning)',
+  distracted: 'var(--color-distracted)',
+  normal: 'var(--color-text-secondary)',
+  focused: 'var(--color-success)',
+  flow: 'var(--color-flow)',
+}
+
+export default function DebugOverlay() {
+  const [visible, setVisible] = useState(false)
+  const signals = useSignalsStore()
+  const {
+    faceDetected, isCalibrating, calibrationProgress,
+    cognitiveScore, focusState,
+    blinkRate, pupilDelta, browFurrow, gazeStability, headMovement,
+  } = signals
+
+  const values = { blinkRate, pupilDelta, browFurrow, gazeStability, headMovement }
+
+  return (
+    <>
+      <button className="debug-toggle" onClick={() => setVisible(v => !v)}>
+        {visible ? 'Hide Debug' : 'Debug'}
+      </button>
+
+      {visible && (
+        <div className="debug-overlay">
+          <div className="debug-score-row">
+            <span className="debug-score-label">Score</span>
+            <span
+              className="debug-score-value"
+              style={{ color: FOCUS_COLORS[focusState] || 'var(--color-text-primary)' }}
+            >
+              {cognitiveScore}
+            </span>
+            <span
+              className="debug-state-badge"
+              style={{ background: FOCUS_COLORS[focusState] || 'var(--color-text-muted)' }}
+            >
+              {focusState}
+            </span>
+          </div>
+
+          <h3>Signals</h3>
+          {SIGNALS.map(({ key, label, color }) => {
+            const val = values[key] ?? 0
+            return (
+              <div className="debug-signal" key={key}>
+                <span className="debug-signal-label">{label}</span>
+                <div className="debug-signal-bar">
+                  <div
+                    className="debug-signal-fill"
+                    style={{
+                      width: `${Math.round(val * 100)}%`,
+                      background: color,
+                    }}
+                  />
+                </div>
+                <span className="debug-signal-value">
+                  {(val * 100).toFixed(0)}
+                </span>
+              </div>
+            )
+          })}
+          <div className="debug-status">
+            <span>
+              <span className={`status-dot ${isCalibrating ? 'calibrating' : faceDetected ? 'on' : 'off'}`} />
+              {isCalibrating ? `Calibrating ${calibrationProgress}%` : faceDetected ? 'Face OK' : 'No face'}
+            </span>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}

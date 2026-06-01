@@ -1,0 +1,45 @@
+.signal-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.signal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.signal-label {
+  width: 100px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.signal-bar-track {
+  flex: 1;
+  height: 10px;
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.signal-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.15s ease;
+}
+
+.signal-value {
+  width: 28px;
+  text-align: right;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
