@@ -74,3 +74,20 @@
 .calibration-warn {
   color: var(--color-warning);
 }
+
+.calibration-cross {
+  font-size: 64px;
+  line-height: 1;
+  font-weight: 300;
+  margin-bottom: 8px;
+  color: currentColor;
+  user-select: none;
+}
+
+.calibration-math {
+  font-size: 40px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 8px;
+  user-select: none;
+}
