@@ -7,10 +7,11 @@
 
 .session-timer {
   font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
 }
 
 .session-buttons {
@@ -19,15 +20,10 @@
 }
 
 .session-btn {
-  padding: 8px 20px;
+  padding: 9px 22px;
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  transition: opacity 0.15s;
-}
-
-.session-btn:hover {
-  opacity: 0.85;
 }
 
 .session-btn-primary {
@@ -35,15 +31,28 @@
   color: white;
 }
 
+.session-btn-primary:hover {
+  background: var(--color-accent-hover);
+}
+
 .session-btn-secondary {
   background: var(--color-bg-surface);
   color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
+}
+
+.session-btn-secondary:hover {
+  border-color: var(--color-text-muted);
 }
 
 .session-btn-danger {
-  background: var(--color-danger);
-  color: white;
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 32%, transparent);
+}
+
+.session-btn-danger:hover {
+  background: color-mix(in srgb, var(--color-danger) 26%, transparent);
 }
 
 .session-btn-ghost {
@@ -54,12 +63,13 @@
 
 .session-btn-ghost:hover {
   color: var(--color-text-primary);
-  border-color: var(--color-text-muted);
+  border-color: var(--color-border-strong);
 }
 
 .session-save-stats {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .session-save-card {
@@ -71,6 +81,7 @@
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
   min-width: 280px;
 }
 

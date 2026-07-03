@@ -18,13 +18,25 @@
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
   max-width: 400px;
   text-align: center;
 }
 
 .onboarding-icon {
-  font-size: 56px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-hover);
+}
+
+.onboarding-icon-success {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-success);
 }
 
 .onboarding-card h2 {
@@ -146,8 +158,10 @@
 }
 
 .onboarding-banner-icon {
-  font-size: 18px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  color: var(--color-accent-hover);
+  flex-shrink: 0;
 }
 
 .onboarding-banner-text {

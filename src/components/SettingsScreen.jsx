@@ -1,22 +1,7 @@
 import useSettingsStore from '../store/settings'
 import useSignalsStore from '../store/signals'
+import { SIGNAL_LABELS as WEIGHT_LABELS, SIGNAL_COLORS as WEIGHT_COLORS } from '../lib/signalMeta'
 import './SettingsScreen.css'
-
-const WEIGHT_LABELS = {
-  blinkRate: 'Blink rate',
-  pupilDelta: 'Pupil dilation',
-  browFurrow: 'Brow tension',
-  gazeStability: 'Gaze stability',
-  headMovement: 'Head stillness',
-}
-
-const WEIGHT_COLORS = {
-  blinkRate: '#5e5ce6',
-  pupilDelta: '#34c759',
-  browFurrow: '#ff9f0a',
-  gazeStability: '#5ac8fa',
-  headMovement: '#ff453a',
-}
 
 export default function SettingsScreen({ onBack }) {
   const settings = useSettingsStore()

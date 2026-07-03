@@ -1,9 +1,9 @@
-import { useCognitiveScore } from '../store/signals'
+import useSignalsStore, { useCognitiveScore } from '../store/signals'
 import './CognitiveMeter.css'
 
-const SIZE = 200
-const RADIUS = 80
-const STROKE = 12
+const SIZE = 240
+const RADIUS = 104
+const STROKE = 10
 const CENTER = SIZE / 2
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
@@ -13,19 +13,31 @@ const STATE_LABELS = {
   normal: 'Normal',
   distracted: 'Distracted',
   calibrating: 'Calibrating',
+  drowsy: 'Drowsy',
+}
+
+const STATE_COLORS = {
+  flow: 'var(--color-flow)',
+  focused: 'var(--color-focused)',
+  normal: 'var(--color-text-secondary)',
+  distracted: 'var(--color-distracted)',
+  calibrating: 'var(--color-warning)',
+  drowsy: 'var(--color-danger)',
 }
 
 function getScoreColor(score) {
-  if (score < 30) return '#ff453a'
-  if (score < 60) return '#ff9f0a'
-  return '#34c759'
+  if (score < 30) return 'var(--color-distracted)'
+  if (score < 60) return 'var(--color-warning)'
+  return 'var(--color-focused)'
 }
 
 export default function CognitiveMeter() {
   const { cognitiveScore, focusState } = useCognitiveScore()
+  const confidence = useSignalsStore((s) => s.confidence)
   const score = cognitiveScore ?? 0
   const offset = CIRCUMFERENCE - (CIRCUMFERENCE * score) / 100
   const color = getScoreColor(score)
+  const stateColor = STATE_COLORS[focusState] || STATE_COLORS.normal
 
   return (
     <div className="cognitive-meter">
@@ -34,6 +46,8 @@ export default function CognitiveMeter() {
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         width={SIZE}
         height={SIZE}
+        role="img"
+        aria-label={`Cognitive load ${score} out of 100, state ${STATE_LABELS[focusState] || 'Calibrating'}`}
       >
         <circle
           className="meter-track"
@@ -55,26 +69,29 @@ export default function CognitiveMeter() {
           strokeDasharray={CIRCUMFERENCE}
           strokeDashoffset={offset}
           transform={`rotate(-90 ${CENTER} ${CENTER})`}
-          style={{ transition: 'stroke-dashoffset 0.3s ease, stroke 0.3s ease' }}
         />
       </svg>
       <div className="meter-center">
         <span className="meter-score">{score}</span>
+        <span className="meter-score-unit">load</span>
       </div>
-      <span
-        className="meter-badge"
-        style={{
-          background: focusState === 'flow'
-            ? 'var(--color-flow)'
-            : focusState === 'focused'
-              ? 'var(--color-success)'
-              : focusState === 'distracted'
-                ? 'var(--color-distracted)'
-                : 'var(--color-text-muted)',
-        }}
-      >
-        {STATE_LABELS[focusState] || 'Calibrating'}
-      </span>
+      <div className="meter-footer">
+        <span
+          className="meter-badge"
+          style={{
+            color: stateColor,
+            background: `color-mix(in srgb, ${stateColor} 12%, transparent)`,
+            borderColor: `color-mix(in srgb, ${stateColor} 28%, transparent)`,
+          }}
+        >
+          {STATE_LABELS[focusState] || 'Calibrating'}
+        </span>
+        {confidence > 0 && (
+          <span className="meter-confidence">
+            Confidence <span className="meter-confidence-value">{Math.round(confidence * 100)}%</span>
+          </span>
+        )}
+      </div>
     </div>
   )
 }

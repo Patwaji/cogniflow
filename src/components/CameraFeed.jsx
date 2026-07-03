@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
+import { Camera } from 'lucide-react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import useSignalsStore from '../store/signals'
@@ -432,7 +433,7 @@ export default function CameraFeed() {
   if (permissionDenied) {
     return (
       <div className="camera-permission-denied">
-        <div className="permission-icon">📷</div>
+        <div className="permission-icon"><Camera size={40} /></div>
         <h2>Camera Access Required</h2>
         <p>CogniFlow needs webcam access to track your cognitive load.</p>
         <p>Please grant camera permission and restart.</p>

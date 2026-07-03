@@ -31,7 +31,7 @@ export default function FocusStateBanner() {
 
   let message
   if (focusState === 'flow') {
-    message = `You've been in flow for ${formatDuration(secondsInState)} 🔥`
+    message = `In flow for ${formatDuration(secondsInState)}`
   } else if (focusState === 'focused') {
     message = 'Focused'
   } else if (focusState === 'distracted') {
@@ -39,12 +39,15 @@ export default function FocusStateBanner() {
   } else if (focusState === 'normal') {
     message = ''
   } else if (focusState === 'drowsy') {
-    message = 'DROWSINESS ALERT! Eyes closed too long.'
+    message = 'Drowsiness detected. Consider a short break.'
   } else {
     message = 'Calibrating...'
   }
 
   if (!message) return <div className="focus-banner-spacer" />
+
+  // Pulse only on live-attention states where the dot conveys real status
+  const pulse = focusState === 'flow' || focusState === 'drowsy'
 
   return (
     <div
@@ -54,7 +57,10 @@ export default function FocusStateBanner() {
         borderColor: config.border,
       }}
     >
-      <span className="focus-banner-dot" style={{ background: config.color }} />
+      <span
+        className={`focus-banner-dot${pulse ? ' pulse' : ''}`}
+        style={{ background: config.color }}
+      />
       <span className="focus-banner-message" style={{ color: config.color }}>
         {message}
       </span>

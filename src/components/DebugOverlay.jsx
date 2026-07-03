@@ -1,14 +1,7 @@
 import { useState } from 'react'
 import useSignalsStore from '../store/signals'
+import { SIGNALS } from '../lib/signalMeta'
 import './DebugOverlay.css'
-
-const SIGNALS = [
-  { key: 'blinkRate', label: 'Blink rate', color: '#5e5ce6' },
-  { key: 'pupilDelta', label: 'Pupil dilation', color: '#34c759' },
-  { key: 'browFurrow', label: 'Brow tension', color: '#ff9f0a' },
-  { key: 'gazeStability', label: 'Gaze stability', color: '#5ac8fa' },
-  { key: 'headMovement', label: 'Head stillness', color: '#ff453a' },
-]
 
 const FOCUS_COLORS = {
   calibrating: 'var(--color-warning)',
@@ -16,7 +9,7 @@ const FOCUS_COLORS = {
   normal: 'var(--color-text-secondary)',
   focused: 'var(--color-success)',
   flow: 'var(--color-flow)',
-  drowsy: '#ff3b30',
+  drowsy: 'var(--color-danger)',
 }
 
 export default function DebugOverlay() {
@@ -83,7 +76,7 @@ export default function DebugOverlay() {
             <div className="debug-signal-bar">
               <div
                 className="debug-signal-fill"
-                style={{ width: `${Math.round(confidence * 100)}%`, background: '#bf5af2' }}
+                style={{ width: `${Math.round(confidence * 100)}%`, background: 'var(--color-accent)' }}
               />
             </div>
             <span className="debug-signal-value">{(confidence * 100).toFixed(0)}</span>
@@ -95,12 +88,12 @@ export default function DebugOverlay() {
                 className="debug-signal-fill"
                 style={{
                   width: `${Math.round((calibrationProfile?.quality ?? 0) * 100)}%`,
-                  background: '#ffd60a',
+                  background: 'var(--color-warning)',
                 }}
               />
             </div>
             <span className="debug-signal-value">
-              {calibrationProfile ? ((calibrationProfile.quality * 100).toFixed(0)) : '—'}
+              {calibrationProfile ? ((calibrationProfile.quality * 100).toFixed(0)) : '-'}
             </span>
           </div>
 

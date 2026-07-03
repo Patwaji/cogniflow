@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 15, 17, 0.92);
+  background: rgba(10, 10, 12, 0.92);
   backdrop-filter: blur(16px);
 }
 
@@ -18,13 +18,41 @@
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  max-width: 380px;
+  box-shadow: var(--shadow-panel);
+  width: min(90vw, 400px);
   text-align: center;
 }
 
-.calibration-icon {
-  font-size: 48px;
-  line-height: 1;
+/* Crisp CSS-drawn fixation cross (no glyph rendering variance) */
+.calibration-cross {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 4px;
+}
+
+.calibration-cross::before,
+.calibration-cross::after {
+  content: '';
+  position: absolute;
+  background: var(--color-text-primary);
+  border-radius: 1px;
+}
+
+.calibration-cross::before {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+.calibration-cross::after {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  transform: translateY(-50%);
 }
 
 .calibration-card h2 {
@@ -41,16 +69,42 @@
 
 .calibration-timer {
   font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   color: var(--color-accent);
   margin: var(--spacing-sm) 0;
+}
+
+.calibration-phases {
+  display: flex;
+  gap: var(--spacing-sm);
+  width: 100%;
+}
+
+.calibration-phase {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.calibration-phase-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color 0.3s ease;
+}
+
+.calibration-phase-label.active {
+  color: var(--color-text-primary);
 }
 
 .calibration-bar-track {
   width: 100%;
   height: 4px;
-  background: var(--color-bg-surface);
+  background: rgba(255, 255, 255, 0.07);
   border-radius: var(--radius-full);
   overflow: hidden;
 }
@@ -75,19 +129,12 @@
   color: var(--color-warning);
 }
 
-.calibration-cross {
-  font-size: 64px;
-  line-height: 1;
-  font-weight: 300;
-  margin-bottom: 8px;
-  color: currentColor;
-  user-select: none;
-}
-
 .calibration-math {
-  font-size: 40px;
-  font-weight: 600;
+  font-size: 44px;
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   user-select: none;
+  color: var(--color-text-primary);
 }

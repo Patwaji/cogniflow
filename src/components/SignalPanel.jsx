@@ -1,13 +1,6 @@
 import useSignalsStore from '../store/signals'
+import { SIGNALS } from '../lib/signalMeta'
 import './SignalPanel.css'
-
-const SIGNALS = [
-  { key: 'blinkRate', label: 'Blink rate', color: '#5e5ce6' },
-  { key: 'pupilDelta', label: 'Pupil dilation', color: '#34c759' },
-  { key: 'browFurrow', label: 'Brow tension', color: '#ff9f0a' },
-  { key: 'gazeStability', label: 'Gaze stability', color: '#5ac8fa' },
-  { key: 'headMovement', label: 'Head stillness', color: '#ff453a' },
-]
 
 export default function SignalPanel() {
   const signals = useSignalsStore()

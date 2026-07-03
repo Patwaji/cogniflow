@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -14,21 +15,25 @@
 }
 
 :root {
-  --color-bg: #0f0f11;
-  --color-bg-elevated: #1a1a1e;
-  --color-bg-surface: #242428;
-  --color-border: #2e2e34;
-  --color-text-primary: #e8e8ed;
-  --color-text-secondary: #8e8e93;
-  --color-text-muted: #636366;
+  /* Layered dark surfaces: page -> raised panel -> interactive surface.
+     Hairline borders instead of solid grays for depth without weight. */
+  --color-bg: #0a0a0c;
+  --color-bg-elevated: #131316;
+  --color-bg-surface: #1d1d22;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+  --color-text-primary: #ececf1;
+  --color-text-secondary: #95959e;
+  --color-text-muted: #5d5d66;
   --color-accent: #5e5ce6;
   --color-accent-hover: #7b7af0;
-  --color-success: #34c759;
-  --color-warning: #ff9f0a;
-  --color-danger: #ff453a;
-  --color-flow: #5e5ce6;
-  --color-focused: #34c759;
-  --color-distracted: #ff453a;
+  --color-accent-soft: rgba(94, 92, 230, 0.14);
+  --color-success: #32b45c;
+  --color-warning: #e8963c;
+  --color-danger: #e05548;
+  --color-flow: #7b7af0;
+  --color-focused: #32b45c;
+  --color-distracted: #e05548;
 
   --spacing-xs: 4px;
   --spacing-sm: 8px;
@@ -37,13 +42,15 @@
   --spacing-xl: 32px;
   --spacing-2xl: 48px;
 
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  /* Shape system: controls 10px, cards/panels 16px, status pills full.
+     Applied consistently across every component. */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
   --radius-full: 9999px;
 
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-sans: 'Geist Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', monospace;
   --font-size-xs: 11px;
   --font-size-sm: 13px;
   --font-size-base: 15px;
@@ -56,6 +63,9 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
+
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 32px rgba(0, 0, 0, 0.35);
+  --focus-ring: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-accent);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -113,26 +123,54 @@ button {
   font-family: inherit;
   font-size: inherit;
   color: inherit;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+    opacity 0.15s ease, transform 0.1s ease;
 }
 
-input, textarea {
+button:active {
+  transform: scale(0.98);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+input, textarea, select {
   font-family: inherit;
   font-size: inherit;
   color: inherit;
   background: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   padding: var(--spacing-sm) var(--spacing-md);
   outline: none;
 }
 
-input:focus, textarea:focus {
+input::placeholder, textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+input:focus, textarea:focus, select:focus {
   border-color: var(--color-accent);
 }
 
 ::selection {
   background: var(--color-accent);
   color: white;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @theme inline {

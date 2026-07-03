@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import { Brain, Camera, Crosshair, Hourglass, CircleCheck, Sparkles, Calculator, Eye } from 'lucide-react'
 import useSettingsStore from '../store/settings'
 import useSignalsStore from '../store/signals'
 import './Onboarding.css'
+
+const ICON_SIZE = 28
 
 const STEPS = ['welcome', 'camera', 'guide', 'calibrating', 'done']
 
@@ -55,11 +58,13 @@ export default function Onboarding({ onDone }) {
   if (current === 'calibrating' && isCalibrating) {
     return (
       <div className="onboarding-banner">
-        <span className="onboarding-banner-icon">{calibrationPhase === 'task' ? '🧮' : '🧘'}</span>
+        <span className="onboarding-banner-icon">
+          {calibrationPhase === 'task' ? <Calculator size={16} /> : <Eye size={16} />}
+        </span>
         <span className="onboarding-banner-text">
           {calibrationPhase === 'task'
-            ? 'Phase 2 of 2: Solve the math problems in your head — this records your task baseline.'
-            : 'Phase 1 of 2: Relax and stare at the cross — this records your resting baseline.'}
+            ? 'Phase 2 of 2: Solve the math problems in your head to record your task baseline.'
+            : 'Phase 1 of 2: Relax and stare at the cross to record your resting baseline.'}
         </span>
         <span className="onboarding-banner-percent">{calibrationProgress}%</span>
       </div>
@@ -70,7 +75,7 @@ export default function Onboarding({ onDone }) {
     <div className="onboarding-overlay">
       {current === 'welcome' && (
         <div className="onboarding-card">
-          <div className="onboarding-icon">🧠</div>
+          <div className="onboarding-icon"><Brain size={ICON_SIZE} /></div>
           <h2>Welcome to CogniFlow</h2>
           <p className="onboarding-text">
             CogniFlow uses your webcam to monitor your cognitive load in real time.
@@ -90,7 +95,7 @@ export default function Onboarding({ onDone }) {
 
       {current === 'camera' && (
         <div className="onboarding-card">
-          <div className="onboarding-icon">📷</div>
+          <div className="onboarding-icon"><Camera size={ICON_SIZE} /></div>
           <h2>Camera Access</h2>
           <p className="onboarding-text">
             CogniFlow needs camera access to track your facial signals.
@@ -122,7 +127,7 @@ export default function Onboarding({ onDone }) {
 
       {current === 'guide' && (
         <div className="onboarding-card">
-          <div className="onboarding-icon">🧘</div>
+          <div className="onboarding-icon"><Crosshair size={ICON_SIZE} /></div>
           <h2>Calibration</h2>
           <p className="onboarding-text">
             We will record your personal baseline in two short phases.
@@ -130,7 +135,7 @@ export default function Onboarding({ onDone }) {
           <p className="onboarding-text" style={{ marginTop: 0 }}>
             First, relax and stare at a fixation cross. Then you will solve
             quick math problems in your head. Follow the on-screen prompts
-            for each phase — they are what make your baseline personal.
+            for each phase; they are what make your baseline personal.
           </p>
           <button className="onboarding-btn" onClick={startCalibration}>Start calibration</button>
           <div className="onboarding-dots">
@@ -143,11 +148,11 @@ export default function Onboarding({ onDone }) {
 
       {current === 'calibrating' && calibrationProgress < 100 && (
         <div className="onboarding-card">
-          <div className="onboarding-icon">⏳</div>
+          <div className="onboarding-icon"><Hourglass size={ICON_SIZE} /></div>
           <h2>Preparing calibration...</h2>
           <p className="onboarding-text">
             Make sure your face is visible to the camera. Calibration will
-            start automatically — rest first, then a quick math task.
+            start automatically: rest first, then a quick math task.
           </p>
           <div className="onboarding-dots">
             {STEPS.map((_, i) => (
@@ -159,7 +164,7 @@ export default function Onboarding({ onDone }) {
 
       {current === 'calibrating' && calibrationProgress >= 100 && (
         <div className="onboarding-card">
-          <div className="onboarding-icon">✅</div>
+          <div className="onboarding-icon onboarding-icon-success"><CircleCheck size={ICON_SIZE} /></div>
           <h2>Calibration complete</h2>
           <p className="onboarding-text">
             We recorded your resting and task baselines to personalize your
@@ -176,7 +181,7 @@ export default function Onboarding({ onDone }) {
 
       {current === 'done' && (
         <div className="onboarding-card">
-          <div className="onboarding-icon">✨</div>
+          <div className="onboarding-icon"><Sparkles size={ICON_SIZE} /></div>
           <h2>You are all set!</h2>
           <p className="onboarding-text">
             Your baseline has been recorded. You can now start using the dashboard

@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
-import useSignalsStore from '../store/signals'
+import { X, Camera } from 'lucide-react'
 import { getLatestLandmarks } from '../utils/latestLandmarks'
 import './CameraPreview.css'
 
@@ -73,7 +73,7 @@ export default function CameraPreview() {
         onClick={() => setVisible((v) => !v)}
         title="Toggle camera preview"
       >
-        {visible ? '✕' : '📷'}
+        {visible ? <X size={14} /> : <Camera size={14} />}
       </button>
       {visible && (
         <div className="camera-preview-feed">

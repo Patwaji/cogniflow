@@ -3,7 +3,17 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ReferenceArea, ResponsiveContainer,
 } from 'recharts'
+import { SIGNALS } from '../lib/signalMeta'
 import './SessionReplay.css'
+
+// Score-band + reference colors, matched to the app's state tokens
+const BAND = {
+  distracted: '#e05548',
+  warning: '#e8963c',
+  focused: '#32b45c',
+  flow: '#7b7af0',
+  accent: '#5e5ce6',
+}
 
 function formatDuration(sec) {
   const m = Math.floor(sec / 60)
@@ -36,13 +46,7 @@ export default function SessionReplay({ session, onBack }) {
   const summary = session.summary || {}
   const duration = session.duration || 0
 
-  const SIGNAL_CHARTS = [
-    { key: 'blinkRate', label: 'Blink rate', color: '#5e5ce6' },
-    { key: 'pupilDelta', label: 'Pupil dilation', color: '#34c759' },
-    { key: 'browFurrow', label: 'Brow tension', color: '#ff9f0a' },
-    { key: 'gazeStability', label: 'Gaze stability', color: '#5ac8fa' },
-    { key: 'headMovement', label: 'Head stillness', color: '#ff453a' },
-  ]
+  const SIGNAL_CHARTS = SIGNALS
 
   return (
     <div className="session-replay">
@@ -115,19 +119,19 @@ export default function SessionReplay({ session, onBack }) {
                 formatter={(value) => [value, 'Score']}
                 labelFormatter={(label) => `${label}s`}
               />
-              <ReferenceArea y1={0} y2={20} fill="#ff453a" fillOpacity={0.08} />
-              <ReferenceArea y1={20} y2={55} fill="#ff9f0a" fillOpacity={0.06} />
-              <ReferenceArea y1={55} y2={80} fill="#34c759" fillOpacity={0.06} />
-              <ReferenceArea y1={80} y2={100} fill="#5e5ce6" fillOpacity={0.06} />
+              <ReferenceArea y1={0} y2={20} fill={BAND.distracted} fillOpacity={0.08} />
+              <ReferenceArea y1={20} y2={55} fill={BAND.warning} fillOpacity={0.06} />
+              <ReferenceArea y1={55} y2={80} fill={BAND.focused} fillOpacity={0.06} />
+              <ReferenceArea y1={80} y2={100} fill={BAND.flow} fillOpacity={0.06} />
               {summary.peakScore != null && (
                 <ReferenceLine
                   y={summary.peakScore}
-                  stroke="#34c759"
+                  stroke={BAND.focused}
                   strokeDasharray="4 4"
                   strokeWidth={1}
                   label={{
                     value: `Peak ${summary.peakScore}`,
-                    fill: '#34c759',
+                    fill: BAND.focused,
                     fontSize: 11,
                     position: 'right',
                   }}
@@ -136,12 +140,12 @@ export default function SessionReplay({ session, onBack }) {
               {summary.lowestScore != null && (
                 <ReferenceLine
                   y={summary.lowestScore}
-                  stroke="#ff453a"
+                  stroke={BAND.distracted}
                   strokeDasharray="4 4"
                   strokeWidth={1}
                   label={{
                     value: `Low ${summary.lowestScore}`,
-                    fill: '#ff453a',
+                    fill: BAND.distracted,
                     fontSize: 11,
                     position: 'right',
                   }}
@@ -150,10 +154,10 @@ export default function SessionReplay({ session, onBack }) {
               <Line
                 type="monotone"
                 dataKey="cognitiveScore"
-                stroke="#5e5ce6"
+                stroke={BAND.accent}
                 strokeWidth={2}
                 dot={false}
-                activeDot={{ r: 4, fill: '#5e5ce6' }}
+                activeDot={{ r: 4, fill: BAND.accent }}
               />
             </LineChart>
           </ResponsiveContainer>
