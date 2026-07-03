@@ -2,13 +2,13 @@ import { create } from 'zustand'
 
 const STORAGE_KEY = 'cogniflow_settings'
 
+const SETTINGS_VERSION = 2
+
 const DEFAULTS = {
+  _v: SETTINGS_VERSION,
   weights: {
-    blinkRate: 30,
-    pupilDelta: 25,
-    browFurrow: 20,
-    gazeStability: 15,
-    headMovement: 10,
+    blinkRate: 50,
+    gazeStability: 50,
   },
   thresholds: {
     distracted: 20,
@@ -29,7 +29,10 @@ const DEFAULTS = {
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? { ...DEFAULTS, ...JSON.parse(raw) } : { ...DEFAULTS }
+    if (!raw) return { ...DEFAULTS }
+    const parsed = JSON.parse(raw)
+    if (parsed._v !== SETTINGS_VERSION) return { ...DEFAULTS }
+    return { ...DEFAULTS, ...parsed }
   } catch {
     return { ...DEFAULTS }
   }
@@ -37,7 +40,7 @@ function load() {
 
 function persist(state) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, _v: SETTINGS_VERSION }))
   } catch {}
 }
 
