@@ -56,6 +56,24 @@ export function sigmoidScore(index, { k, midpoint }) {
   return 100 / (1 + Math.exp(-k * (index - midpoint)))
 }
 
+// The two calibration anchors always sit at ±2 from the midpoint in the
+// sigmoid exponent (k = 4/span and anchor = midpoint ± span/2 → k·span/2 = 2),
+// so the rest floor and task ceiling map to these fixed raw outputs
+// regardless of the user's k/midpoint. Rescaling against them stretches the
+// user's personal rest→peak range across the full 0-100 span, so the resting
+// baseline reads 0 and peak effort reads 100 (matching the design intent that
+// the score curve toward 100% near the ceiling instead of stalling at ~88).
+export const SIGMOID_FLOOR_OUTPUT = 100 / (1 + Math.exp(2)) // ≈ 11.92
+export const SIGMOID_CEILING_OUTPUT = 100 / (1 + Math.exp(-2)) // ≈ 88.08
+
+export function rescaleScore(rawSigmoid) {
+  const stretched =
+    ((rawSigmoid - SIGMOID_FLOOR_OUTPUT) /
+      (SIGMOID_CEILING_OUTPUT - SIGMOID_FLOOR_OUTPUT)) *
+    100
+  return Math.max(0, Math.min(100, stretched))
+}
+
 export function computeEngagementScore(raw, profile, weights = ENGINE_WEIGHTS) {
   const normalized = {}
   for (const key of Object.keys(weights)) {
@@ -67,7 +85,7 @@ export function computeEngagementScore(raw, profile, weights = ENGINE_WEIGHTS) {
     )
   }
   const index = weightedIndex(normalized, weights)
-  const score = Math.round(sigmoidScore(index, profile))
+  const score = Math.round(rescaleScore(sigmoidScore(index, profile)))
   return { score, index, normalized }
 }
 

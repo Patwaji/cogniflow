@@ -5,10 +5,32 @@ import {
   weightedIndex,
   deriveSigmoidParams,
   sigmoidScore,
+  rescaleScore,
   computeEngagementScore,
   expandCeiling,
   SIGNAL_DIRECTIONS,
+  SIGMOID_FLOOR_OUTPUT,
+  SIGMOID_CEILING_OUTPUT,
 } from '../engagementEngine'
+
+describe('rescaleScore', () => {
+  it('maps the sigmoid floor anchor output to 0', () => {
+    expect(rescaleScore(SIGMOID_FLOOR_OUTPUT)).toBeCloseTo(0)
+  })
+
+  it('maps the sigmoid ceiling anchor output to 100', () => {
+    expect(rescaleScore(SIGMOID_CEILING_OUTPUT)).toBeCloseTo(100)
+  })
+
+  it('maps the sigmoid midpoint (50) to 50', () => {
+    expect(rescaleScore(50)).toBeCloseTo(50)
+  })
+
+  it('clamps below the floor to 0 and above the ceiling to 100', () => {
+    expect(rescaleScore(5)).toBe(0)
+    expect(rescaleScore(95)).toBe(100)
+  })
+})
 
 describe('normalizeSignal', () => {
   it('maps value linearly between min and max', () => {
@@ -99,13 +121,24 @@ describe('computeEngagementScore', () => {
     expect(r.normalized.blinkRate).toBeCloseTo(1)
     expect(r.normalized.gazeStability).toBeCloseTo(1)
     expect(r.index).toBeCloseTo(1)
-    expect(r.score).toBe(99)
+    // index=1 sits above the task ceiling; rescale clamps to 100
+    expect(r.score).toBe(100)
   })
 
   it('scores low when blink is high and gaze is jittery', () => {
     const r = computeEngagementScore({ blinkRate: 20, gazeStability: 0.01 }, profile, weights)
     expect(r.index).toBeCloseTo(0)
-    expect(r.score).toBe(3) // 100/(1+e^(8*0.45)) ≈ 2.66 → round 3
+    // index=0 sits below the rest floor; rescale clamps to 0
+    expect(r.score).toBe(0)
+  })
+
+  it('produces a mid-range score for a mid-range index', () => {
+    // blink 12 → 0.5, gaze 0.0055 → 0.5, so index sits at 0.5 (just above the
+    // 0.45 sigmoid midpoint) and rescales into the middle of the 0-100 range
+    const r = computeEngagementScore({ blinkRate: 12, gazeStability: 0.0055 }, profile, weights)
+    expect(r.index).toBeCloseTo(0.5)
+    expect(r.score).toBeGreaterThan(50)
+    expect(r.score).toBeLessThan(75)
   })
 
   it('skips signals absent from raw and renormalizes', () => {
