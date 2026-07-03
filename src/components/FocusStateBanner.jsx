@@ -8,6 +8,7 @@ const STATE_CONFIG = {
   normal: { color: 'var(--color-text-secondary)', bg: 'transparent', border: 'transparent' },
   distracted: { color: 'var(--color-distracted)', bg: 'rgba(255, 69, 58, 0.10)', border: 'rgba(255, 69, 58, 0.2)' },
   calibrating: { color: 'var(--color-warning)', bg: 'rgba(255, 159, 10, 0.10)', border: 'rgba(255, 159, 10, 0.2)' },
+  drowsy: { color: '#ff3b30', bg: 'rgba(255, 59, 48, 0.15)', border: 'rgba(255, 59, 48, 0.35)' },
 }
 
 function formatDuration(seconds) {
@@ -37,6 +38,8 @@ export default function FocusStateBanner() {
     message = 'You seem distracted'
   } else if (focusState === 'normal') {
     message = ''
+  } else if (focusState === 'drowsy') {
+    message = 'DROWSINESS ALERT! Eyes closed too long.'
   } else {
     message = 'Calibrating...'
   }

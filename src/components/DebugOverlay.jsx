@@ -16,6 +16,7 @@ const FOCUS_COLORS = {
   normal: 'var(--color-text-secondary)',
   focused: 'var(--color-success)',
   flow: 'var(--color-flow)',
+  drowsy: '#ff3b30',
 }
 
 export default function DebugOverlay() {

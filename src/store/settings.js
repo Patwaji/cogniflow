@@ -19,6 +19,7 @@ const DEFAULTS = {
     flow: true,
     distracted: true,
     sessionEnd: true,
+    drowsy: true,
   },
   calibrationDuration: 30,
   performanceMode: false,

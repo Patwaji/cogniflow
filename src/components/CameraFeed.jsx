@@ -18,6 +18,8 @@ import {
 import './CameraFeed.css'
 
 const BLINK_THRESHOLD = 0.2
+const DROWSY_EAR_THRESHOLD = 0.22
+const DROWSY_DURATION_MS = 500
 const ROLLING_WINDOW_MS = 60000
 const GAZE_HISTORY_LENGTH = 30
 const HEAD_HISTORY_LENGTH = 30
@@ -37,6 +39,7 @@ export default function CameraFeed() {
   const setCalibration = useSignalsStore((s) => s.setCalibration)
   const setCalibrationProgress = useSignalsStore((s) => s.setCalibrationProgress)
   const setFaceDetected = useSignalsStore((s) => s.setFaceDetected)
+  const setDrowsy = useSignalsStore((s) => s.setDrowsy)
   const recalibrateTick = useSignalsStore((s) => s._recalibrateTick)
 
   const animFrameRef = useRef(null)
@@ -47,6 +50,8 @@ export default function CameraFeed() {
   const gazeHistory = useRef([])
   const headHistory = useRef([])
   const lastEAR = useRef(1.0)
+  const drowsyClosedAt = useRef(null)
+  const isDrowsy = useRef(false)
 
   const calibrationStart = useRef(null)
   const calibrationData = useRef({
@@ -216,6 +221,21 @@ export default function CameraFeed() {
     const blinkRate = blinkTimestamps.current.length
 
     const now = Date.now()
+
+    if (ear < DROWSY_EAR_THRESHOLD) {
+      if (!drowsyClosedAt.current) {
+        drowsyClosedAt.current = now
+      } else if (now - drowsyClosedAt.current >= DROWSY_DURATION_MS && !isDrowsy.current) {
+        isDrowsy.current = true
+        setDrowsy(true)
+      }
+    } else {
+      drowsyClosedAt.current = null
+      if (isDrowsy.current) {
+        isDrowsy.current = false
+        setDrowsy(false)
+      }
+    }
 
     if (!calibrationDone.current) {
       if (!calibrationStart.current) {

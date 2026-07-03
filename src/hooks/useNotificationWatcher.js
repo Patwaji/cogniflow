@@ -37,6 +37,12 @@ export default function useNotificationWatcher() {
           }, NOTIFY_DISTRACTED_MS)
         }
 
+        if (focus === 'drowsy' && focus !== prev.focus) {
+          if (canFire('drowsy')) {
+            notify('Drowsiness Alert', 'Your eyes have been closed for too long. Take a break.')
+          }
+        }
+
         if (
           (prev.session === 'running' || prev.session === 'paused') &&
           session === 'idle' &&

@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 
 const DEBOUNCE_MS = 300000
-const lastFired = { flow: 0, distracted: 0, sessionEnd: 0 }
+const lastFired = { flow: 0, distracted: 0, sessionEnd: 0, drowsy: 0 }
 
 export function canFire(type) {
   const now = Date.now()

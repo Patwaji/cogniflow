@@ -22,6 +22,7 @@ const useSignalsStore = create((set, get) => ({
   focusState: 'calibrating',
   focusStateEntryTime: Date.now(),
   onScreen: true,
+  drowsy: false,
 
   scoreHistory: [],
   distractedSince: null,
@@ -56,7 +57,7 @@ const useSignalsStore = create((set, get) => ({
     let distractedSince = state.distractedSince
     let flowSince = state.flowSince
 
-    if (focusState !== 'calibrating') {
+    if (focusState !== 'calibrating' && !state.drowsy) {
       if (smoothedScore < distractedTh) {
         if (distractedSince === null) {
           distractedSince = now
@@ -132,6 +133,27 @@ const useSignalsStore = create((set, get) => ({
     faceDetected: detected,
   }),
 
+  setDrowsy: (val) => set((state) => {
+    if (val && !state.drowsy) {
+      return {
+        drowsy: true,
+        focusState: 'drowsy',
+        focusStateEntryTime: Date.now(),
+      }
+    }
+    if (!val && state.drowsy) {
+      return {
+        drowsy: false,
+        focusState: 'normal',
+        focusStateEntryTime: Date.now(),
+        scoreHistory: [],
+        distractedSince: null,
+        flowSince: null,
+      }
+    }
+    return {}
+  }),
+
   _recalibrateTick: 0,
 
   requestRecalibration: () => set((state) => ({
@@ -164,6 +186,7 @@ const useSignalsStore = create((set, get) => ({
       gazeStability: state.gazeStability,
       headMovement: state.headMovement,
       focusState: state.focusState,
+      drowsy: state.drowsy,
     }
     return { sessionDataPoints: [...state.sessionDataPoints, point] }
   }),
