@@ -146,6 +146,9 @@ export default function CameraFeed() {
   }, [])
 
   useEffect(() => {
+    // Only available inside the Tauri shell — in a plain browser
+    // getCurrentWindow() throws and would crash the whole tree.
+    if (!('__TAURI_INTERNALS__' in window)) return undefined
     let cancelled = false
     getCurrentWindow().onFocusChanged(({ payload: focused }) => {
       if (!cancelled) setLowPower(!focused)
