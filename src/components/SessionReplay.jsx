@@ -1,19 +1,12 @@
 import { useMemo } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ReferenceLine, ReferenceArea, ResponsiveContainer,
+  ResponsiveContainer,
 } from 'recharts'
 import { SIGNALS } from '../lib/signalMeta'
+import useSettingsStore from '../store/settings'
+import ScoreChart from './ScoreChart'
 import './SessionReplay.css'
-
-// Score-band + reference colors, matched to the app's state tokens
-const BAND = {
-  distracted: '#e05548',
-  warning: '#e8963c',
-  focused: '#32b45c',
-  flow: '#7b7af0',
-  accent: '#5e5ce6',
-}
 
 function formatDuration(sec) {
   const m = Math.floor(sec / 60)
@@ -31,10 +24,13 @@ function formatDate(ts) {
 }
 
 export default function SessionReplay({ session, onBack }) {
+  const thresholds = useSettingsStore((s) => s.thresholds)
+
   const chartData = useMemo(() => {
     return session.dataPoints.map((p, i) => ({
       elapsed: i * 5,
       cognitiveScore: p.cognitiveScore,
+      confidence: p.confidence ?? 0,
       blinkRate: Math.round((p.blinkRate ?? 0) * 100),
       pupilDelta: Math.round((p.pupilDelta ?? 0) * 100),
       browFurrow: Math.round((p.browFurrow ?? 0) * 100),
@@ -45,6 +41,11 @@ export default function SessionReplay({ session, onBack }) {
 
   const summary = session.summary || {}
   const duration = session.duration || 0
+
+  const gt = session.groundTruth
+  const highlight = gt
+    ? { startElapsed: gt.segmentStartElapsed, endElapsed: gt.segmentEndElapsed }
+    : null
 
   const SIGNAL_CHARTS = SIGNALS
 
@@ -92,76 +93,20 @@ export default function SessionReplay({ session, onBack }) {
       </div>
 
       <div className="replay-chart-section">
-        <h3 className="replay-section-title">Cognitive Score</h3>
-        <div className="replay-chart-wrapper">
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis
-                dataKey="elapsed"
-                stroke="var(--color-text-muted)"
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v) => `${Math.floor(v / 60)}m`}
-              />
-              <YAxis
-                domain={[0, 100]}
-                stroke="var(--color-text-muted)"
-                tick={{ fontSize: 11 }}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: 'var(--color-bg-elevated)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  color: 'var(--color-text-primary)',
-                }}
-                formatter={(value) => [value, 'Score']}
-                labelFormatter={(label) => `${label}s`}
-              />
-              <ReferenceArea y1={0} y2={20} fill={BAND.distracted} fillOpacity={0.08} />
-              <ReferenceArea y1={20} y2={55} fill={BAND.warning} fillOpacity={0.06} />
-              <ReferenceArea y1={55} y2={80} fill={BAND.focused} fillOpacity={0.06} />
-              <ReferenceArea y1={80} y2={100} fill={BAND.flow} fillOpacity={0.06} />
-              {summary.peakScore != null && (
-                <ReferenceLine
-                  y={summary.peakScore}
-                  stroke={BAND.focused}
-                  strokeDasharray="4 4"
-                  strokeWidth={1}
-                  label={{
-                    value: `Peak ${summary.peakScore}`,
-                    fill: BAND.focused,
-                    fontSize: 11,
-                    position: 'right',
-                  }}
-                />
-              )}
-              {summary.lowestScore != null && (
-                <ReferenceLine
-                  y={summary.lowestScore}
-                  stroke={BAND.distracted}
-                  strokeDasharray="4 4"
-                  strokeWidth={1}
-                  label={{
-                    value: `Low ${summary.lowestScore}`,
-                    fill: BAND.distracted,
-                    fontSize: 11,
-                    position: 'right',
-                  }}
-                />
-              )}
-              <Line
-                type="monotone"
-                dataKey="cognitiveScore"
-                stroke={BAND.accent}
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4, fill: BAND.accent }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        <h3 className="replay-section-title">Cognitive Load</h3>
+        <ScoreChart
+          data={chartData}
+          thresholds={thresholds}
+          highlight={highlight}
+          height={260}
+          gradientId="replay-grad"
+        />
+        {gt && (
+          <p className="replay-groundtruth">
+            You confirmed this {gt.direction === 'drop' ? 'dip' : 'rise'}:{' '}
+            <strong>{gt.answer === 'yes' ? 'yes, remembered' : gt.answer === 'no' ? 'not remembered' : 'skipped'}</strong>
+          </p>
+        )}
       </div>
 
       <div className="replay-signals-section">

@@ -1,0 +1,18 @@
+.score-chart {
+  width: 100%;
+}
+
+.score-chart-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding: 0 4px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.score-chart-anchor {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}

@@ -3,7 +3,7 @@ import SignalPanel from './SignalPanel'
 import SessionControls from './SessionControls'
 import './Dashboard.css'
 
-export default function Dashboard({ onHistory, onSettings }) {
+export default function Dashboard({ onHistory, onSettings, onTrends }) {
   return (
     <div className="dashboard">
       <div className="dashboard-center">
@@ -13,7 +13,7 @@ export default function Dashboard({ onHistory, onSettings }) {
         <SignalPanel />
       </div>
       <div className="dashboard-controls">
-        <SessionControls onHistory={onHistory} onSettings={onSettings} />
+        <SessionControls onHistory={onHistory} onSettings={onSettings} onTrends={onTrends} />
       </div>
     </div>
   )

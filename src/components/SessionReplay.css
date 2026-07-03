@@ -111,6 +111,17 @@
   padding: var(--spacing-sm);
 }
 
+.replay-groundtruth {
+  margin-top: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.replay-groundtruth strong {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
 .replay-signals-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

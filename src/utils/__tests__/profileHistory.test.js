@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { recordCalibration, recordSessionSummary, getProfileStats } from '../profileHistory'
+import { recordCalibration, recordSessionSummary, getProfileStats, getProfileHistory } from '../profileHistory'
 
 const DAY = 24 * 60 * 60 * 1000
 const T0 = Date.UTC(2026, 6, 3) // 2026-07-03
@@ -58,5 +58,29 @@ describe('profileHistory', () => {
     localStorage.setItem('cogniflow_profile', '{not json')
     expect(() => recordCalibration(fakeProfile(), T0)).not.toThrow()
     expect(getProfileStats(T0).calibrationCount).toBe(1)
+  })
+})
+
+describe('getProfileHistory', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('returns empty arrays with no data', () => {
+    expect(getProfileHistory(T0)).toEqual({ calibrations: [], sessions: [] })
+  })
+
+  it('returns time-ordered calibrations and sessions within 30 days', () => {
+    recordCalibration(fakeProfile({ k: 5 }), T0 - 2 * DAY)
+    recordCalibration(fakeProfile({ k: 7 }), T0)
+    recordSessionSummary({ avgScore: 60, avgConfidence: 0.7, durationSec: 300, points: 30 }, T0 - DAY)
+    recordSessionSummary({ avgScore: 80, avgConfidence: 0.9, durationSec: 600, points: 60 }, T0)
+    const { calibrations, sessions } = getProfileHistory(T0)
+    expect(calibrations.map((c) => c.k)).toEqual([5, 7])
+    expect(sessions.map((s) => s.avgScore)).toEqual([60, 80])
+  })
+
+  it('prunes entries older than 30 days', () => {
+    recordSessionSummary({ avgScore: 50, avgConfidence: 0.5, durationSec: 100, points: 10 }, T0 - 31 * DAY)
+    recordSessionSummary({ avgScore: 70, avgConfidence: 0.8, durationSec: 200, points: 20 }, T0)
+    expect(getProfileHistory(T0).sessions).toHaveLength(1)
   })
 })

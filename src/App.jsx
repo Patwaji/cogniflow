@@ -4,13 +4,16 @@ import CameraFeed from './components/CameraFeed'
 import Dashboard from './components/Dashboard'
 import SessionHistory from './components/SessionHistory'
 import SessionReplay from './components/SessionReplay'
+import SessionReview from './components/SessionReview'
 import SettingsScreen from './components/SettingsScreen'
+import TrendsScreen from './components/TrendsScreen'
 import Onboarding from './components/Onboarding'
 import FocusStateBanner from './components/FocusStateBanner'
 import CameraPreview from './components/CameraPreview'
 import DebugOverlay from './components/DebugOverlay'
 import CalibrationOverlay from './components/CalibrationOverlay'
 import useSettingsStore from './store/settings'
+import useSignalsStore from './store/signals'
 import useNotificationWatcher from './hooks/useNotificationWatcher'
 
 function App() {
@@ -20,16 +23,25 @@ function App() {
   const [showOnboarding, setShowOnboarding] = useState(!onboardingDone)
   useNotificationWatcher()
 
+  // A finished-but-unsaved session takes over the dashboard with its review.
+  const sessionState = useSignalsStore((s) => s.sessionState)
+  const pendingReview = useSignalsStore((s) => s.sessionDataPoints.length > 0)
+  const showReview = view === 'dashboard' && sessionState === 'idle' && pendingReview
+
   return (
     <div style={{ width: '100vw', height: '100vh', background: 'var(--color-bg)', position: 'relative', overflow: 'hidden' }}>
       <CameraFeed />
       <FocusStateBanner />
 
-      {view === 'dashboard' && (
+      {view === 'dashboard' && !showReview && (
         <Dashboard
           onHistory={() => setView('history')}
           onSettings={() => setView('settings')}
+          onTrends={() => setView('trends')}
         />
+      )}
+      {showReview && (
+        <SessionReview onDone={() => setView('dashboard')} />
       )}
       {view === 'history' && (
         <SessionHistory
@@ -45,6 +57,9 @@ function App() {
           session={selectedSession}
           onBack={() => setView('history')}
         />
+      )}
+      {view === 'trends' && (
+        <TrendsScreen onBack={() => setView('dashboard')} />
       )}
       {view === 'settings' && (
         <SettingsScreen onBack={() => setView('dashboard')} />

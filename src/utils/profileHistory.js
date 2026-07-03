@@ -73,3 +73,16 @@ export function getProfileStats(now = Date.now()) {
     k: meanStd(calibrations.map((c) => c.k)),
   }
 }
+
+// Raw time-ordered series for the trends view (last 30 days).
+export function getProfileHistory(now = Date.now()) {
+  const data = load()
+  const c = cutoff(now)
+  const calibrations = Object.values(data.calibrations || {})
+    .filter((e) => e.createdAt >= c)
+    .sort((a, b) => a.createdAt - b.createdAt)
+  const sessions = (data.sessions || [])
+    .filter((s) => s.createdAt >= c)
+    .sort((a, b) => a.createdAt - b.createdAt)
+  return { calibrations, sessions }
+}
