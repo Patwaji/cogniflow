@@ -1,5 +1,7 @@
 import { create } from 'zustand'
-import { computeCognitiveScore } from '../utils/scoreEngine'
+import { computeEngagementScore, expandCeiling } from '../utils/engagementEngine'
+import { reweightProfile } from '../utils/calibrationProfile'
+import { computeConfidence } from '../utils/confidenceModel'
 import useSettingsStore from './settings'
 
 const ROLLING_FRAMES = 90
@@ -14,6 +16,13 @@ const useSignalsStore = create((set, get) => ({
   headMovement: 0,
   lastUpdated: null,
   faceDetected: false,
+
+  calibrationProfile: null,
+  calibrationPhase: null,
+  confidence: 0,
+  rawSignals: { blinkRate: 0, gazeStability: 0 },
+  indexHistory: [],
+  _profileWeightsKey: '',
 
   isCalibrating: false,
   calibrationProgress: 0,
@@ -34,18 +43,38 @@ const useSignalsStore = create((set, get) => ({
   sessionDataPoints: [],
   sessionEndTime: null,
 
-  updateSignals: (signals) => {
+  updateSignals: ({ raw, display, confidenceInputs, onScreen = true }) => {
     const state = get()
+    let profile = state.calibrationProfile
+    if (!profile) return
+
     const now = Date.now()
-    const { onScreen = true, ...signalValues } = signals
     const settings = useSettingsStore.getState()
-    const rawScore = computeCognitiveScore(signalValues, settings.weights)
-    const history = [...state.scoreHistory, rawScore]
+
+    // Re-derive sigmoid anchors if the user changed weights since calibration.
+    const weightsKey = JSON.stringify(settings.weights)
+    if (weightsKey !== state._profileWeightsKey) {
+      profile = reweightProfile(profile, settings.weights)
+    }
+
+    const { score, index, normalized } = computeEngagementScore(raw, profile, settings.weights)
+
+    const history = [...state.scoreHistory, score]
     while (history.length > ROLLING_FRAMES) history.shift()
-    const len = history.length
-    const smoothedScore = len > 0
-      ? Math.round(history.reduce((a, b) => a + b, 0) / len)
-      : 0
+    const smoothedScore = Math.round(history.reduce((a, b) => a + b, 0) / history.length)
+
+    // Adaptive ceiling driven by the smoothed weighted index, not raw spikes.
+    const indexHistory = [...state.indexHistory, index]
+    while (indexHistory.length > ROLLING_FRAMES) indexHistory.shift()
+    const smoothedIndex = indexHistory.reduce((a, b) => a + b, 0) / indexHistory.length
+    if (indexHistory.length >= ROLLING_FRAMES) {
+      profile = expandCeiling(profile, smoothedIndex)
+    }
+
+    const confidence = computeConfidence({
+      ...confidenceInputs,
+      calibration: profile.quality,
+    })
 
     const t = settings.thresholds
     const distractedTh = t.distracted ?? 20
@@ -104,7 +133,17 @@ const useSignalsStore = create((set, get) => ({
     }
 
     set({
-      ...signals,
+      blinkRate: normalized.blinkRate ?? 0,
+      gazeStability: normalized.gazeStability ?? 0,
+      pupilDelta: display.pupilDelta,
+      browFurrow: display.browFurrow,
+      headMovement: display.headMovement,
+      onScreen,
+      rawSignals: raw,
+      confidence,
+      calibrationProfile: profile,
+      _profileWeightsKey: weightsKey,
+      indexHistory,
       lastUpdated: now,
       cognitiveScore: smoothedScore,
       focusState,
@@ -118,15 +157,33 @@ const useSignalsStore = create((set, get) => ({
   setCalibration: (val) => set({
     isCalibrating: val,
     calibrationProgress: val ? 0 : 100,
+    calibrationPhase: val ? 'rest' : null,
     focusState: val ? 'calibrating' : 'normal',
     focusStateEntryTime: Date.now(),
     scoreHistory: [],
+    indexHistory: [],
     distractedSince: null,
     flowSince: null,
   }),
 
   setCalibrationProgress: (progress) => set({
     calibrationProgress: progress,
+  }),
+
+  setCalibrationPhase: (phase) => set({ calibrationPhase: phase }),
+
+  setCalibrationProfile: (profile) => set({
+    calibrationProfile: profile,
+    _profileWeightsKey: JSON.stringify(useSettingsStore.getState().weights),
+    isCalibrating: false,
+    calibrationProgress: 100,
+    calibrationPhase: null,
+    focusState: 'normal',
+    focusStateEntryTime: Date.now(),
+    scoreHistory: [],
+    indexHistory: [],
+    distractedSince: null,
+    flowSince: null,
   }),
 
   setFaceDetected: (detected) => set({
@@ -160,9 +217,12 @@ const useSignalsStore = create((set, get) => ({
     _recalibrateTick: state._recalibrateTick + 1,
     isCalibrating: true,
     calibrationProgress: 0,
+    calibrationPhase: 'rest',
+    calibrationProfile: null,
     focusState: 'calibrating',
     focusStateEntryTime: Date.now(),
     scoreHistory: [],
+    indexHistory: [],
     distractedSince: null,
     flowSince: null,
   })),
@@ -180,11 +240,14 @@ const useSignalsStore = create((set, get) => ({
     const point = {
       timestamp: Date.now(),
       cognitiveScore: state.cognitiveScore,
+      confidence: state.confidence,
       blinkRate: state.blinkRate,
       pupilDelta: state.pupilDelta,
       browFurrow: state.browFurrow,
       gazeStability: state.gazeStability,
       headMovement: state.headMovement,
+      rawBlinkRate: state.rawSignals.blinkRate,
+      rawGazeJitter: state.rawSignals.gazeStability,
       focusState: state.focusState,
       drowsy: state.drowsy,
     }
