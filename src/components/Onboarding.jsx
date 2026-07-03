@@ -13,11 +13,17 @@ export default function Onboarding({ onDone }) {
   const isCalibrating = useSignalsStore((s) => s.isCalibrating)
   const calibrationProgress = useSignalsStore((s) => s.calibrationProgress)
   const calibrationPhase = useSignalsStore((s) => s.calibrationPhase)
+  const armCalibration = useSignalsStore((s) => s.armCalibration)
 
   function next() {
     if (step < STEPS.length - 1) {
       setStep(s => s + 1)
     }
+  }
+
+  function startCalibration() {
+    armCalibration()
+    next()
   }
 
   function finish() {
@@ -126,7 +132,7 @@ export default function Onboarding({ onDone }) {
             quick math problems in your head. Follow the on-screen prompts
             for each phase — they are what make your baseline personal.
           </p>
-          <button className="onboarding-btn" onClick={next}>Start calibration</button>
+          <button className="onboarding-btn" onClick={startCalibration}>Start calibration</button>
           <div className="onboarding-dots">
             {STEPS.map((_, i) => (
               <span key={i} className={`onboarding-dot ${i === step ? 'active' : ''}`} />

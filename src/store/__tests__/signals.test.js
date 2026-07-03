@@ -105,6 +105,13 @@ describe('signals store v2', () => {
     expect(virgin.getState().cognitiveScore).toBe(0)
   })
 
+  it('defaults calibrationArmed to false and arms it via armCalibration()', async () => {
+    const virgin = await freshStore()
+    expect(virgin.getState().calibrationArmed).toBe(false)
+    virgin.getState().armCalibration()
+    expect(virgin.getState().calibrationArmed).toBe(true)
+  })
+
   it('includes confidence and raw values in session data points', () => {
     pump(store, {
       raw: { blinkRate: 9, gazeStability: 0.0015 },

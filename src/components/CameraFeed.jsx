@@ -325,6 +325,8 @@ export default function CameraFeed() {
     const gazeJitter = pointVariance(gazeHistory.current)
 
     if (!calibrationDone.current) {
+      const armed = useSettingsStore.getState().onboardingDone || useSignalsStore.getState().calibrationArmed
+      if (!armed) return
       runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browDist })
       return
     }

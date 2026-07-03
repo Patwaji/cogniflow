@@ -27,6 +27,7 @@ const useSignalsStore = create((set, get) => ({
 
   isCalibrating: false,
   calibrationProgress: 0,
+  calibrationArmed: false,
 
   cognitiveScore: 0,
   focusState: 'calibrating',
@@ -172,6 +173,8 @@ const useSignalsStore = create((set, get) => ({
   }),
 
   setCalibrationPhase: (phase) => set({ calibrationPhase: phase }),
+
+  armCalibration: () => set({ calibrationArmed: true }),
 
   setCalibrationProfile: (profile) => set({
     calibrationProfile: profile,
