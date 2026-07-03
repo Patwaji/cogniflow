@@ -15,16 +15,42 @@ import {
   RIGHT_IRIS_IDS,
   estimateScreenEngagement,
 } from '../utils/signalExtractor'
+import { buildCalibrationProfile } from '../utils/calibrationProfile'
+import {
+  irisStabilityFromResiduals,
+  illuminationQuality,
+  framerateQuality,
+} from '../utils/confidenceModel'
+import { recordCalibration } from '../utils/profileHistory'
 import './CameraFeed.css'
 
 const BLINK_THRESHOLD = 0.2
 const DROWSY_EAR_THRESHOLD = 0.22
 const DROWSY_DURATION_MS = 500
-const ROLLING_WINDOW_MS = 60000
+const BLINK_WINDOW_MS = 15000
+const BLINK_RATE_SCALE = 60000 / BLINK_WINDOW_MS // window count → blinks/min
 const GAZE_HISTORY_LENGTH = 30
 const HEAD_HISTORY_LENGTH = 30
 const NORMAL_FPS = 33
 const LOW_FPS = 66
+const CALIB_SETTLE_MS = 3000
+const MIN_PHASE_SAMPLES = 60
+const FACE_HISTORY_LENGTH = 90
+const LUMA_SAMPLE_EVERY = 30
+const LUMA_HISTORY_LENGTH = 20
+const RESIDUAL_HISTORY_LENGTH = 30
+const FPS_HISTORY_LENGTH = 30
+
+function makeCalibState() {
+  return {
+    phase: 'rest',
+    phaseStart: null,
+    rest: { gazeSamples: [], blinks: 0, irisRadiusSum: 0, browDistSum: 0, frames: 0 },
+    task: { gazeSamples: [], blinks: 0 },
+    framesTotal: 0,
+    framesWithFace: 0,
+  }
+}
 
 export default function CameraFeed() {
   const videoRef = useRef(null)
@@ -38,6 +64,8 @@ export default function CameraFeed() {
   const updateSignals = useSignalsStore((s) => s.updateSignals)
   const setCalibration = useSignalsStore((s) => s.setCalibration)
   const setCalibrationProgress = useSignalsStore((s) => s.setCalibrationProgress)
+  const setCalibrationPhase = useSignalsStore((s) => s.setCalibrationPhase)
+  const setCalibrationProfile = useSignalsStore((s) => s.setCalibrationProfile)
   const setFaceDetected = useSignalsStore((s) => s.setFaceDetected)
   const setDrowsy = useSignalsStore((s) => s.setDrowsy)
   const recalibrateTick = useSignalsStore((s) => s._recalibrateTick)
@@ -53,18 +81,21 @@ export default function CameraFeed() {
   const drowsyClosedAt = useRef(null)
   const isDrowsy = useRef(false)
 
-  const calibrationStart = useRef(null)
-  const calibrationData = useRef({
-    earSum: 0, earCount: 0,
-    irisRadiusSum: 0, irisRadiusCount: 0,
-    browDistSum: 0, browDistCount: 0,
-  })
-  const baselineRef = useRef({
-    avgEAR: null,
-    avgIrisRadius: null,
-    avgBrowDist: null,
-  })
+  const calib = useRef(null) // null → not started; see makeCalibState()
   const calibrationDone = useRef(false)
+
+  // Display-only baselines (pupilDelta/browFurrow panels), captured during rest
+  const displayBaseline = useRef({ avgIrisRadius: null, avgBrowDist: null })
+
+  // Confidence inputs
+  const faceHistory = useRef([])      // 1|0 per processed frame
+  const lumaSamples = useRef([])      // mean luma 0..255, sampled every LUMA_SAMPLE_EVERY frames
+  const irisResiduals = useRef([])    // per-frame max(0, |irisΔ| - |noseΔ|)
+  const frameTimes = useRef([])       // processed-frame timestamps for fps
+  const frameCounter = useRef(0)
+  const prevIris = useRef(null)
+  const prevNose = useRef(null)
+  const lumaCanvas = useRef(null)
 
   useEffect(() => {
     async function startCamera() {
@@ -127,13 +158,9 @@ export default function CameraFeed() {
   }, [lowPower, performanceMode])
 
   useEffect(() => {
-    calibrationStart.current = null
-    calibrationData.current = {
-      earSum: 0, earCount: 0,
-      irisRadiusSum: 0, irisRadiusCount: 0,
-      browDistSum: 0, browDistCount: 0,
-    }
+    calib.current = null
     calibrationDone.current = false
+    displayBaseline.current = { avgIrisRadius: null, avgBrowDist: null }
   }, [recalibrateTick])
 
   useEffect(() => {
@@ -158,6 +185,14 @@ export default function CameraFeed() {
       }
       lastTimestamp = now
 
+      frameTimes.current.push(now)
+      if (frameTimes.current.length > FPS_HISTORY_LENGTH) frameTimes.current.shift()
+
+      frameCounter.current++
+      if (frameCounter.current % LUMA_SAMPLE_EVERY === 0) {
+        sampleLuma(video)
+      }
+
       if (
         canvas.width !== video.videoWidth ||
         canvas.height !== video.videoHeight
@@ -173,12 +208,14 @@ export default function CameraFeed() {
 
       if (result.faceLandmarks && result.faceLandmarks.length > 0) {
         setFaceDetected(true)
+        pushFace(1)
         const landmarks = result.faceLandmarks[0]
         drawLandmarks(ctx, landmarks, canvas.width, canvas.height)
         setLatestLandmarks(landmarks)
         processFrame(landmarks)
       } else {
         setFaceDetected(false)
+        pushFace(0)
       }
 
       animFrameRef.current = requestAnimationFrame(detectLoop)
@@ -192,6 +229,35 @@ export default function CameraFeed() {
       }
     }
   }, [modelLoading])
+
+  function pushFace(v) {
+    faceHistory.current.push(v)
+    if (faceHistory.current.length > FACE_HISTORY_LENGTH) faceHistory.current.shift()
+    if (calib.current && !calibrationDone.current) {
+      calib.current.framesTotal++
+      if (v) calib.current.framesWithFace++
+    }
+  }
+
+  function sampleLuma(video) {
+    if (!lumaCanvas.current) {
+      lumaCanvas.current = document.createElement('canvas')
+      lumaCanvas.current.width = 32
+      lumaCanvas.current.height = 24
+    }
+    const c = lumaCanvas.current
+    const ctx = c.getContext('2d', { willReadFrequently: true })
+    try {
+      ctx.drawImage(video, 0, 0, c.width, c.height)
+      const { data } = ctx.getImageData(0, 0, c.width, c.height)
+      let sum = 0
+      for (let i = 0; i < data.length; i += 4) {
+        sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+      }
+      lumaSamples.current.push(sum / (data.length / 4))
+      if (lumaSamples.current.length > LUMA_HISTORY_LENGTH) lumaSamples.current.shift()
+    } catch {}
+  }
 
   function processFrame(landmarks) {
     const ear = calculateEAR(landmarks)
@@ -212,16 +278,31 @@ export default function CameraFeed() {
       headHistory.current.shift()
     }
 
-    if (ear < BLINK_THRESHOLD && lastEAR.current >= BLINK_THRESHOLD) {
-      blinkTimestamps.current.push(Date.now())
-      const cutoff = Date.now() - ROLLING_WINDOW_MS
-      blinkTimestamps.current = blinkTimestamps.current.filter((t) => t > cutoff)
+    // Iris temporal-stability residual: iris motion beyond head motion is
+    // tracker jitter (MediaPipe exposes no landmark error, so temporal
+    // stability is the proxy).
+    if (prevIris.current && prevNose.current) {
+      const irisD = Math.hypot(irisCentroid.x - prevIris.current.x, irisCentroid.y - prevIris.current.y)
+      const noseD = Math.hypot(noseTip.x - prevNose.current.x, noseTip.y - prevNose.current.y)
+      irisResiduals.current.push(Math.max(0, irisD - noseD))
+      if (irisResiduals.current.length > RESIDUAL_HISTORY_LENGTH) irisResiduals.current.shift()
     }
-    lastEAR.current = ear
-    const blinkRate = blinkTimestamps.current.length
+    prevIris.current = irisCentroid
+    prevNose.current = { x: noseTip.x, y: noseTip.y }
 
     const now = Date.now()
 
+    // Blink edge detection over a 15s window, scaled to blinks/min
+    let blinked = false
+    if (ear < BLINK_THRESHOLD && lastEAR.current >= BLINK_THRESHOLD) {
+      blinked = true
+      blinkTimestamps.current.push(now)
+    }
+    lastEAR.current = ear
+    blinkTimestamps.current = blinkTimestamps.current.filter((t) => t > now - BLINK_WINDOW_MS)
+    const blinkRatePerMin = blinkTimestamps.current.length * BLINK_RATE_SCALE
+
+    // Drowsiness detection (unchanged)
     if (ear < DROWSY_EAR_THRESHOLD) {
       if (!drowsyClosedAt.current) {
         drowsyClosedAt.current = now
@@ -237,69 +318,106 @@ export default function CameraFeed() {
       }
     }
 
+    const gazeJitter = pointVariance(gazeHistory.current)
+
     if (!calibrationDone.current) {
-      if (!calibrationStart.current) {
-        calibrationStart.current = now
-        setCalibration(true)
-      }
-
-      const elapsed = now - calibrationStart.current
-      const calMs = useSettingsStore.getState().calibrationDuration * 1000
-      const progress = Math.min(elapsed / calMs, 1)
-      setCalibrationProgress(Math.round(progress * 100))
-
-      const cd = calibrationData.current
-      cd.earSum += ear
-      cd.earCount++
-      cd.irisRadiusSum += avgIrisRadius
-      cd.irisRadiusCount++
-      cd.browDistSum += browDist
-      cd.browDistCount++
-
-      if (elapsed >= calMs) {
-        if (cd.earCount < 10) {
-          calibrationStart.current = null
-          calibrationData.current = {
-            earSum: 0, earCount: 0,
-            irisRadiusSum: 0, irisRadiusCount: 0,
-            browDistSum: 0, browDistCount: 0,
-          }
-          return
-        }
-        baselineRef.current = {
-          avgEAR: cd.earSum / cd.earCount,
-          avgIrisRadius: cd.irisRadiusSum / cd.irisRadiusCount,
-          avgBrowDist: cd.browDistSum / cd.browDistCount,
-        }
-        calibrationDone.current = true
-        setCalibration(false)
-      }
-
+      runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browDist })
       return
     }
 
-    const baseline = baselineRef.current
+    const baseline = displayBaseline.current
+    const display = {
+      pupilDelta: clamp01((avgIrisRadius / baseline.avgIrisRadius - 0.95) / 0.1),
+      browFurrow: clamp01((baseline.avgBrowDist - browDist) / (baseline.avgBrowDist * 0.15 + 0.001)),
+      headMovement: clamp01(Math.min(pointVariance(headHistory.current) / 0.005, 1)),
+    }
 
-    const blinkRaw = clamp01(Math.min(blinkRate / 30, 1))
-    const pupilRaw = clamp01((avgIrisRadius / baseline.avgIrisRadius - 0.95) / 0.1)
-    const browRaw = clamp01((baseline.avgBrowDist - browDist) / (baseline.avgBrowDist * 0.15 + 0.001))
-
-    const gv = pointVariance(gazeHistory.current)
-    const gazeRaw = clamp01(Math.min(gv / 0.005, 1))
-
-    const hv = pointVariance(headHistory.current)
-    const headRaw = clamp01(Math.min(hv / 0.005, 1))
+    const ft = frameTimes.current
+    const actualFps = ft.length > 1 ? ((ft.length - 1) / (ft[ft.length - 1] - ft[0])) * 1000 : 0
+    const confidenceInputs = {
+      face: faceHistory.current.length
+        ? faceHistory.current.reduce((a, b) => a + b, 0) / faceHistory.current.length
+        : 0,
+      iris: irisStabilityFromResiduals(irisResiduals.current),
+      illumination: illuminationQuality(lumaSamples.current),
+      framerate: framerateQuality(actualFps, 1000 / frameIntervalRef.current),
+    }
 
     const engagement = estimateScreenEngagement(landmarks)
 
     updateSignals({
-      blinkRate: blinkRaw,
-      pupilDelta: pupilRaw,
-      browFurrow: browRaw,
-      gazeStability: gazeRaw,
-      headMovement: headRaw,
+      raw: { blinkRate: blinkRatePerMin, gazeStability: gazeJitter },
+      display,
+      confidenceInputs,
       onScreen: engagement > 0.3,
     })
+  }
+
+  function runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browDist }) {
+    if (!calib.current) {
+      calib.current = makeCalibState()
+      setCalibration(true)
+    }
+    const c = calib.current
+    if (!c.phaseStart) {
+      c.phaseStart = now
+      setCalibrationPhase(c.phase)
+    }
+
+    const totalMs = useSettingsStore.getState().calibrationDuration * 1000
+    const phaseMs = totalMs / 2
+    const phaseElapsed = now - c.phaseStart
+    const overall = c.phase === 'rest' ? phaseElapsed : phaseMs + phaseElapsed
+    setCalibrationProgress(Math.round(Math.min(overall / totalMs, 1) * 100))
+
+    // Collect after the settle window
+    if (phaseElapsed > CALIB_SETTLE_MS) {
+      const bucket = c[c.phase]
+      bucket.gazeSamples.push(gazeJitter)
+      if (blinked) bucket.blinks++
+      if (c.phase === 'rest') {
+        bucket.irisRadiusSum += avgIrisRadius
+        bucket.browDistSum += browDist
+        bucket.frames++
+      }
+    }
+
+    if (phaseElapsed < phaseMs) return
+
+    if (c.phase === 'rest') {
+      c.phase = 'task'
+      c.phaseStart = now
+      setCalibrationPhase('task')
+      return
+    }
+
+    // Task phase finished → validate and build the profile
+    const usableMin = (phaseMs - CALIB_SETTLE_MS) / 60000
+    if (
+      c.rest.gazeSamples.length < MIN_PHASE_SAMPLES ||
+      c.task.gazeSamples.length < MIN_PHASE_SAMPLES ||
+      c.rest.frames < 10
+    ) {
+      calib.current = null // restart calibration from the rest phase
+      return
+    }
+
+    displayBaseline.current = {
+      avgIrisRadius: c.rest.irisRadiusSum / c.rest.frames,
+      avgBrowDist: c.rest.browDistSum / c.rest.frames,
+    }
+
+    const profile = buildCalibrationProfile({
+      rest: { gazeSamples: c.rest.gazeSamples, blinkRatePerMin: c.rest.blinks / usableMin },
+      task: { gazeSamples: c.task.gazeSamples, blinkRatePerMin: c.task.blinks / usableMin },
+      weights: useSettingsStore.getState().weights,
+      faceDetectionRate: c.framesTotal ? c.framesWithFace / c.framesTotal : 0,
+      now,
+    })
+
+    calibrationDone.current = true
+    setCalibrationProfile(profile)
+    recordCalibration(profile, now)
   }
 
   if (permissionDenied) {
