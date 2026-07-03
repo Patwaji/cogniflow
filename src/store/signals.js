@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { computeEngagementScore, expandCeiling } from '../utils/engagementEngine'
 import { reweightProfile } from '../utils/calibrationProfile'
 import { computeConfidence } from '../utils/confidenceModel'
+import { recordSessionSummary } from '../utils/profileHistory'
 import useSettingsStore from './settings'
 
 const ROLLING_FRAMES = 90
@@ -267,10 +268,22 @@ const useSignalsStore = create((set, get) => ({
     }
   }),
 
-  stopSession: () => set((state) => ({
-    sessionState: 'idle',
-    sessionEndTime: Date.now(),
-  })),
+  stopSession: () => set((state) => {
+    const points = state.sessionDataPoints
+    if (points.length > 0) {
+      const avg = (key) => points.reduce((a, p) => a + (p[key] ?? 0), 0) / points.length
+      recordSessionSummary({
+        avgScore: Math.round(avg('cognitiveScore')),
+        avgConfidence: Number(avg('confidence').toFixed(2)),
+        durationSec: state.sessionElapsed,
+        points: points.length,
+      })
+    }
+    return {
+      sessionState: 'idle',
+      sessionEndTime: Date.now(),
+    }
+  }),
 
   discardSession: () => set({
     sessionDataPoints: [],

@@ -26,6 +26,7 @@ export default function DebugOverlay() {
     faceDetected, isCalibrating, calibrationProgress,
     cognitiveScore, focusState,
     blinkRate, pupilDelta, browFurrow, gazeStability, headMovement,
+    confidence, calibrationProfile,
   } = signals
 
   const values = { blinkRate, pupilDelta, browFurrow, gazeStability, headMovement }
@@ -75,6 +76,34 @@ export default function DebugOverlay() {
               </div>
             )
           })}
+
+          <h3>Quality</h3>
+          <div className="debug-signal">
+            <span className="debug-signal-label">Confidence</span>
+            <div className="debug-signal-bar">
+              <div
+                className="debug-signal-fill"
+                style={{ width: `${Math.round(confidence * 100)}%`, background: '#bf5af2' }}
+              />
+            </div>
+            <span className="debug-signal-value">{(confidence * 100).toFixed(0)}</span>
+          </div>
+          <div className="debug-signal">
+            <span className="debug-signal-label">Calib quality</span>
+            <div className="debug-signal-bar">
+              <div
+                className="debug-signal-fill"
+                style={{
+                  width: `${Math.round((calibrationProfile?.quality ?? 0) * 100)}%`,
+                  background: '#ffd60a',
+                }}
+              />
+            </div>
+            <span className="debug-signal-value">
+              {calibrationProfile ? ((calibrationProfile.quality * 100).toFixed(0)) : '—'}
+            </span>
+          </div>
+
           <div className="debug-status">
             <span>
               <span className={`status-dot ${isCalibrating ? 'calibrating' : faceDetected ? 'on' : 'off'}`} />
