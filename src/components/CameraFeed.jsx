@@ -302,19 +302,23 @@ export default function CameraFeed() {
     blinkTimestamps.current = blinkTimestamps.current.filter((t) => t > now - BLINK_WINDOW_MS)
     const blinkRatePerMin = blinkTimestamps.current.length * BLINK_RATE_SCALE
 
-    // Drowsiness detection (unchanged)
-    if (ear < DROWSY_EAR_THRESHOLD) {
-      if (!drowsyClosedAt.current) {
-        drowsyClosedAt.current = now
-      } else if (now - drowsyClosedAt.current >= DROWSY_DURATION_MS && !isDrowsy.current) {
-        isDrowsy.current = true
-        setDrowsy(true)
-      }
-    } else {
-      drowsyClosedAt.current = null
-      if (isDrowsy.current) {
-        isDrowsy.current = false
-        setDrowsy(false)
+    // Drowsiness detection (unchanged) — skipped while calibration is still
+    // in progress so a drowsy blink mid-calibration can't desync focusState
+    // from isCalibrating or fire a drowsy notification during the flow.
+    if (calibrationDone.current) {
+      if (ear < DROWSY_EAR_THRESHOLD) {
+        if (!drowsyClosedAt.current) {
+          drowsyClosedAt.current = now
+        } else if (now - drowsyClosedAt.current >= DROWSY_DURATION_MS && !isDrowsy.current) {
+          isDrowsy.current = true
+          setDrowsy(true)
+        }
+      } else {
+        drowsyClosedAt.current = null
+        if (isDrowsy.current) {
+          isDrowsy.current = false
+          setDrowsy(false)
+        }
       }
     }
 
