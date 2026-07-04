@@ -179,6 +179,7 @@ const useSignalsStore = create((set, get) => ({
     if (!val && state.drowsy) {
       return {
         drowsy: false,
+        _emaScore: null,
         _focusMachine: null,
       }
     }
