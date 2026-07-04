@@ -76,15 +76,15 @@ export default function SessionReplay({ session, onBack }) {
         </div>
         <div className="summary-card">
           <span className="summary-value summary-flow">
-            {summary.totalFlowSeconds ? formatDuration(summary.totalFlowSeconds) : '--'}
+            {summary.focusedSeconds ? formatDuration(summary.focusedSeconds) : '--'}
           </span>
-          <span className="summary-label">In flow</span>
+          <span className="summary-label">Focused</span>
         </div>
         <div className="summary-card">
           <span className="summary-value summary-distracted">
-            {summary.totalDistractedSeconds ? formatDuration(summary.totalDistractedSeconds) : '--'}
+            {summary.driftingSeconds ? formatDuration(summary.driftingSeconds) : '--'}
           </span>
-          <span className="summary-label">Distracted</span>
+          <span className="summary-label">Drifting</span>
         </div>
         <div className="summary-card">
           <span className="summary-value">{formatDuration(duration)}</span>

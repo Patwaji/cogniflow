@@ -2,7 +2,7 @@
 // Shared so the post-session review and any other saver produce identical
 // on-disk shape. `groundTruth` is optional retrospective validation.
 
-const TICK_SECONDS = 5
+import { buildSessionStory } from './sessionStory'
 
 export function buildSessionData({ startTime, endTime, dataPoints, groundTruth = null }) {
   const scores = dataPoints.map((p) => p.cognitiveScore)
@@ -23,12 +23,12 @@ export function buildSessionData({ startTime, endTime, dataPoints, groundTruth =
     }
   }
 
-  const flowPoints = dataPoints.filter((p) => p.focusState === 'flow')
-  const distractedPoints = dataPoints.filter((p) => p.focusState === 'distracted')
   const confidences = dataPoints.map((p) => p.confidence ?? 0)
   const avgConfidence = Number(
     (confidences.reduce((a, b) => a + b, 0) / confidences.length).toFixed(2),
   )
+
+  const story = buildSessionStory(dataPoints, startTime)
 
   return {
     name: `Session ${new Date(startTime).toLocaleDateString()}`,
@@ -44,8 +44,12 @@ export function buildSessionData({ startTime, endTime, dataPoints, groundTruth =
       peakTimestamp,
       lowestScore,
       lowestTimestamp,
-      totalFlowSeconds: flowPoints.length * TICK_SECONDS,
-      totalDistractedSeconds: distractedPoints.length * TICK_SECONDS,
+      longestFocusedStretchSec: story.longestFocusedStretchSec,
+      focusedSeconds: story.focusedSec,
+      driftingSeconds: story.driftingSec,
+      drowsySeconds: story.drowsySec,
+      awaySeconds: story.awaySec,
+      firstDriftElapsed: story.firstDriftElapsed,
     },
   }
 }

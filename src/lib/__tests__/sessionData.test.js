@@ -3,7 +3,7 @@ import { buildSessionData, findBiggestChangeSegment } from '../sessionData'
 
 const START = 1_000_000
 
-function pt(elapsedSec, score, focusState = 'normal', confidence = 0.8) {
+function pt(elapsedSec, score, focusState = 'focused', confidence = 0.8) {
   return {
     timestamp: START + elapsedSec * 1000,
     cognitiveScore: score,
@@ -15,17 +15,20 @@ function pt(elapsedSec, score, focusState = 'normal', confidence = 0.8) {
 describe('buildSessionData', () => {
   it('computes summary stats and carries groundTruth', () => {
     const dataPoints = [
-      pt(0, 40, 'normal'),
-      pt(5, 80, 'flow'),
-      pt(10, 20, 'distracted'),
+      pt(0, 40, 'focused'),
+      pt(5, 80, 'drifting'),
+      pt(10, 20, 'drowsy'),
     ]
     const gt = { answer: 'yes' }
     const s = buildSessionData({ startTime: START, endTime: START + 15000, dataPoints, groundTruth: gt })
     expect(s.summary.avgScore).toBe(Math.round((40 + 80 + 20) / 3))
     expect(s.summary.peakScore).toBe(80)
     expect(s.summary.lowestScore).toBe(20)
-    expect(s.summary.totalFlowSeconds).toBe(5)
-    expect(s.summary.totalDistractedSeconds).toBe(5)
+    expect(s.summary.focusedSeconds).toBe(5)
+    expect(s.summary.driftingSeconds).toBe(5)
+    expect(s.summary.drowsySeconds).toBe(5)
+    expect(s.summary.longestFocusedStretchSec).toBe(5)
+    expect(s.summary.firstDriftElapsed).toBe(5)
     expect(s.summary.avgConfidence).toBeCloseTo(0.8, 2)
     expect(s.duration).toBe(15)
     expect(s.groundTruth).toBe(gt)
