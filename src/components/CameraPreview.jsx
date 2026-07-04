@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { X, Camera } from 'lucide-react'
 import { getLatestLandmarks } from '../utils/latestLandmarks'
+import useSignalsStore from '../store/signals'
 import './CameraPreview.css'
 
 export default function CameraPreview() {
@@ -9,16 +10,36 @@ export default function CameraPreview() {
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
   const frameRef = useRef(null)
+  const cameraOff = useSignalsStore((s) => s.cameraOff)
 
+  // Single source of truth for the preview's own stream acquisition, mirroring
+  // CameraFeed's pattern: runs on mount and again whenever cameraOff toggles.
+  // When cameraOff is true, no stream is acquired and the cleanup below stops
+  // whatever the previous run had, so the OS camera light never stays on
+  // after the user turns the camera off — even though the preview has its
+  // own independent getUserMedia call.
   useEffect(() => {
+    if (cameraOff) {
+      return undefined
+    }
+
+    // Captured once per effect run (not re-read in cleanup) so the
+    // react-hooks/exhaustive-deps ref-in-cleanup check is satisfied.
+    const videoEl = videoRef.current
+    let cancelled = false
+
     async function start() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 320, height: 240, facingMode: 'user' },
         })
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
         streamRef.current = stream
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
+        if (videoEl) {
+          videoEl.srcObject = stream
         }
       } catch {
         // silently fail — preview is optional
@@ -26,13 +47,27 @@ export default function CameraPreview() {
     }
     start()
     return () => {
-      streamRef.current?.getTracks().forEach((t) => t.stop())
-      if (frameRef.current) cancelAnimationFrame(frameRef.current)
+      cancelled = true
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
+      }
+      if (videoEl) {
+        videoEl.srcObject = null
+      }
     }
-  }, [])
+  }, [cameraOff])
 
   useEffect(() => {
-    if (!visible) return
+    if (!visible || cameraOff) {
+      // Clear any landmark overlay drawn before the camera was turned off so
+      // no stale frame lingers behind the placeholder.
+      const canvas = canvasRef.current
+      if (canvas) {
+        canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
+      }
+      return undefined
+    }
 
     function draw() {
       const canvas = canvasRef.current
@@ -64,7 +99,7 @@ export default function CameraPreview() {
     return () => {
       if (frameRef.current) cancelAnimationFrame(frameRef.current)
     }
-  }, [visible])
+  }, [visible, cameraOff])
 
   return (
     <div className={`camera-preview ${visible ? '' : 'camera-preview-hidden'}`}>
@@ -77,14 +112,23 @@ export default function CameraPreview() {
       </button>
       {visible && (
         <div className="camera-preview-feed">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="camera-preview-video"
-          />
-          <canvas ref={canvasRef} className="camera-preview-canvas" />
+          {cameraOff ? (
+            <div className="camera-preview-off">
+              <Camera size={14} />
+              <span>Camera off</span>
+            </div>
+          ) : (
+            <>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="camera-preview-video"
+              />
+              <canvas ref={canvasRef} className="camera-preview-canvas" />
+            </>
+          )}
         </div>
       )}
     </div>
