@@ -5,6 +5,7 @@ import { reweightProfile } from '../utils/calibrationProfile'
 import { computeConfidence } from '../utils/confidenceModel'
 import { recordSessionSummary } from '../utils/profileHistory'
 import { createFocusMachine, stepFocusMachine, FOCUS_STATES } from '../utils/focusState'
+import { buildSessionStory } from '../lib/sessionStory'
 import useSettingsStore from './settings'
 
 const ROLLING_FRAMES = 90
@@ -266,11 +267,18 @@ const useSignalsStore = create(subscribeWithSelector((set, get) => ({
     const points = state.sessionDataPoints
     if (points.length > 0) {
       const avg = (key) => points.reduce((a, p) => a + (p[key] ?? 0), 0) / points.length
+      const story = buildSessionStory(points, state.sessionStartTime)
       recordSessionSummary({
         avgScore: Math.round(avg('cognitiveScore')),
         avgConfidence: Number(avg('confidence').toFixed(2)),
         durationSec: state.sessionElapsed,
         points: points.length,
+        longestFocusedStretchSec: story.longestFocusedStretchSec,
+        focusedSeconds: story.focusedSec,
+        driftCount: story.driftCount,
+        drowsyCount: story.drowsyCount,
+        awayCount: story.awayCount,
+        firstDriftElapsed: story.firstDriftElapsed,
       })
     }
     return {
