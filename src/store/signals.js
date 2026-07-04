@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { subscribeWithSelector } from 'zustand/middleware'
 import { computeEngagementScore, expandCeiling, emaNext } from '../utils/engagementEngine'
 import { reweightProfile } from '../utils/calibrationProfile'
 import { computeConfidence } from '../utils/confidenceModel'
@@ -14,7 +15,7 @@ const CEILING_MAX_EXPANSION = 0.15
 // but with less lag and without blunting real dips/spikes.
 const EMA_ALPHA = 2 / (ROLLING_FRAMES + 1)
 
-const useSignalsStore = create((set, get) => ({
+const useSignalsStore = create(subscribeWithSelector((set, get) => ({
   blinkRate: 0,
   pupilDelta: 0,
   browFurrow: 0,
@@ -289,7 +290,7 @@ const useSignalsStore = create((set, get) => ({
     const elapsed = Math.floor((Date.now() - state.sessionStartTime) / 1000)
     return { sessionElapsed: elapsed }
   }),
-}))
+})))
 
 export function useCognitiveScore() {
   const cognitiveScore = useSignalsStore((s) => s.cognitiveScore)

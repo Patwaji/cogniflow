@@ -6,8 +6,9 @@ import { notify } from '../utils/notifications'
 // Steps the pure nudge engine on focus/session changes and fires supportive
 // OS notifications. All timing/cooldown logic lives in the engine.
 export default function useNudgeWatcher() {
-  const stateRef = useRef(createNudgeState(Date.now()))
+  const stateRef = useRef(null)
   useEffect(() => {
+    if (!stateRef.current) stateRef.current = createNudgeState(Date.now())
     return useSignalsStore.subscribe(
       (s) => ({ focusState: s.focusState, sessionState: s.sessionState, elapsed: s.sessionElapsed }),
       ({ focusState, sessionState, elapsed }) => {

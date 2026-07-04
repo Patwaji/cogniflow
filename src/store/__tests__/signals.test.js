@@ -382,4 +382,13 @@ describe('signals store v2', () => {
     expect(point.rawScore).toBe(store.getState().rawScore)
     expect(typeof point.cognitiveScore).toBe('number')
   })
+
+  it('supports selector-subscribe (callback fires on change) — guards notification wiring', async () => {
+    const store = await freshStore()
+    const calls = []
+    const unsub = store.subscribe((s) => s.sessionState, (cur) => calls.push(cur))
+    store.getState().startSession()
+    unsub()
+    expect(calls).toContain('running')
+  })
 })
