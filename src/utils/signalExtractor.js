@@ -158,6 +158,41 @@ function estimateScreenEngagement(landmarks) {
   return clamp01(hScore * 0.35 + vScore * 0.35 + headFacing * 0.3)
 }
 
+// "On material": is the user looking at their work area — the screen OR
+// paper/notebook on the desk in front of them? The discriminator is HORIZONTAL
+// head direction, not the exact gaze point. Looking DOWN at a notebook (head
+// forward, gaze down) is on-task, so vertical gaze/pitch is deliberately
+// ignored — only turning the head away, or looking far off to the side, counts
+// as off-task. This is what lets pen-and-paper work read as focused while a
+// glance at a phone held to the side, or turning to talk to someone, does not.
+const ONMATERIAL_YAW_TOL = 0.16   // |nose x-offset / face width| beyond this = head turned away
+const ONMATERIAL_GAZE_TOL = 0.42  // |horizontal iris ratio - 0.5| beyond this = gaze far to the side
+
+function estimateOnMaterial(landmarks) {
+  const nose = landmarks[NOSE_TIP]
+  const leftCheek = landmarks[LEFT_CHEEK]
+  const rightCheek = landmarks[RIGHT_CHEEK]
+  const faceWidth = dist(leftCheek, rightCheek) + 1e-6
+
+  // Horizontal-only head yaw: nose x-offset from the cheek midline. Pitch
+  // (looking down at the desk) does not move the nose horizontally, so writing
+  // with the head tilted down still reads as facing the work.
+  const cheekMidX = (leftCheek.x + rightCheek.x) / 2
+  const yaw = Math.abs(nose.x - cheekMidX) / faceWidth
+  if (yaw > ONMATERIAL_YAW_TOL) return false // head turned away → off-task
+
+  // Horizontal gaze within the eye (averaged L/R). Only a far side-glance
+  // counts as off; downward/upward gaze passes (handled by ignoring vertical).
+  const li = centroid(LEFT_IRIS_IDS.map((i) => landmarks[i]))
+  const ri = centroid(RIGHT_IRIS_IDS.map((i) => landmarks[i]))
+  const lInner = landmarks[LEFT_EYE_INNER], lOuter = landmarks[LEFT_EYE_OUTER]
+  const rInner = landmarks[RIGHT_EYE_INNER], rOuter = landmarks[RIGHT_EYE_OUTER]
+  const hL = (li.x - lInner.x) / (lOuter.x - lInner.x + 1e-6)
+  const hR = (ri.x - rInner.x) / (rOuter.x - rInner.x + 1e-6)
+  const h = (hL + hR) / 2
+  return Math.abs(h - 0.5) <= ONMATERIAL_GAZE_TOL
+}
+
 export {
   calculateEAR,
   calculateIrisRadius,
@@ -173,4 +208,5 @@ export {
   RIGHT_IRIS_IDS,
   clamp01,
   estimateScreenEngagement,
+  estimateOnMaterial,
 }

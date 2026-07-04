@@ -15,7 +15,7 @@ import {
   clamp01,
   LEFT_IRIS_IDS,
   RIGHT_IRIS_IDS,
-  estimateScreenEngagement,
+  estimateOnMaterial,
 } from '../utils/signalExtractor'
 import { buildCalibrationProfile } from '../utils/calibrationProfile'
 import {
@@ -404,13 +404,16 @@ export default function CameraFeed() {
       framerate: framerateQuality(actualFps, 1000 / frameIntervalRef.current),
     }
 
-    const engagement = estimateScreenEngagement(landmarks)
+    // "On material" = looking at the screen OR down at paper/notebook on the
+    // desk (head forward). Head-direction based, so pen-and-paper work reads as
+    // on-task; only a head-turn / far side-glance counts as drifting.
+    const onMaterial = estimateOnMaterial(landmarks)
 
     updateSignals({
       raw: { blinkRate: blinkRatePerMin, gazeStability: gazeJitter, browFurrow: browRatio },
       display,
       confidenceInputs,
-      onScreen: engagement > 0.3,
+      onScreen: onMaterial,
     })
   }
 

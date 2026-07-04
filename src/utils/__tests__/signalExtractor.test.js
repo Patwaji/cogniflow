@@ -1,5 +1,48 @@
 import { describe, it, expect } from 'vitest'
-import { calculateGazeRatio, calculateIrisCentroid, calculateBrowRatio } from '../signalExtractor'
+import {
+  calculateGazeRatio,
+  calculateIrisCentroid,
+  calculateBrowRatio,
+  estimateOnMaterial,
+} from '../signalExtractor'
+
+// Face with nose (1), cheeks (234/454), eye corners, and irises set — enough
+// for estimateOnMaterial. noseX shifts head yaw; irisH is the horizontal iris
+// ratio (0.5 = centered); irisY is the vertical iris position (ignored by
+// estimateOnMaterial, so it exercises the "looking down at a notebook" case).
+function makeMaterialFace({ noseX = 0.5, irisH = 0.5, irisY = 0.5 } = {}) {
+  const lm = new Array(478).fill(null).map(() => ({ x: 0.5, y: 0.5, z: 0 }))
+  const set = (i, x, y) => { lm[i] = { x, y, z: 0 } }
+  set(1, noseX, 0.50)   // nose tip
+  set(234, 0.30, 0.55)  // left cheek
+  set(454, 0.70, 0.55)  // right cheek
+  set(33, 0.30, 0.50); set(133, 0.40, 0.50)   // left eye inner/outer
+  set(263, 0.60, 0.50); set(362, 0.70, 0.50)  // right eye inner/outer
+  const lx = 0.30 + irisH * 0.10 // between left inner (0.30) and outer (0.40)
+  const rx = 0.60 + irisH * 0.10 // between right inner (0.60) and outer (0.70)
+  for (const i of [468, 469, 470, 471, 472]) set(i, lx, irisY)
+  for (const i of [473, 474, 475, 476, 477]) set(i, rx, irisY)
+  return lm
+}
+
+describe('estimateOnMaterial', () => {
+  it('head forward + centered gaze → on material', () => {
+    expect(estimateOnMaterial(makeMaterialFace())).toBe(true)
+  })
+
+  it('looking DOWN at a notebook (head forward) is still on material (copy-pen work)', () => {
+    expect(estimateOnMaterial(makeMaterialFace({ irisY: 0.28 }))).toBe(true)
+  })
+
+  it('head turned away → off material', () => {
+    // nose offset (0.58-0.5)/faceWidth(0.4) = 0.20 > yaw tolerance
+    expect(estimateOnMaterial(makeMaterialFace({ noseX: 0.58 }))).toBe(false)
+  })
+
+  it('far side-glance (head forward) → off material', () => {
+    expect(estimateOnMaterial(makeMaterialFace({ irisH: 0.95 }))).toBe(false)
+  })
+})
 
 // Minimal synthetic face: only the landmark indices the gaze functions read.
 // Iris centers sit exactly mid-way between each eye's corners and lids → ratio 0.5/0.5.
