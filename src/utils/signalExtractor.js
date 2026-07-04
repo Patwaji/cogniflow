@@ -106,7 +106,13 @@ function calculateGazeRatio(landmarks) {
   const vL = (li.y - lBot.y) / (lTop.y - lBot.y + 1e-6)
   const vR = (ri.y - rBot.y) / (rTop.y - rBot.y + 1e-6)
 
-  return { x: (hL + hR) / 2, y: (vL + vR) / 2 }
+  // Blink frames collapse (lTop - lBot) toward the epsilon, which can send
+  // vL/vR — and therefore the returned y — toward a huge magnitude even
+  // though the eye is simply closed. Clamp to a band wide enough to leave
+  // real gaze (which sits in [0,1]) untouched, but narrow enough to cap the
+  // blink-induced spike before it reaches gaze-jitter variance.
+  const clampRatio = (v) => Math.max(-0.5, Math.min(1.5, v))
+  return { x: clampRatio((hL + hR) / 2), y: clampRatio((vL + vR) / 2) }
 }
 
 function getNoseTip(landmarks) {

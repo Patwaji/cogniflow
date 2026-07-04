@@ -146,6 +146,31 @@ describe('computeEngagementScore', () => {
     const r = computeEngagementScore({ blinkRate: 4 }, profile, weights)
     expect(r.index).toBeCloseTo(1)
   })
+
+  it('skips a signal with no calibrated boundary even when raw and weight are present', () => {
+    // browFurrow has a weight but no matching profile.boundaries entry — the
+    // structural guard must keep it out of both the live index (renormalized
+    // from blinkRate/gazeStability only) regardless of its raw value.
+    const weightsWithBrow = { blinkRate: 40, gazeStability: 35, browFurrow: 25 }
+    const raw = { blinkRate: 4, gazeStability: 0.001, browFurrow: 0.05 }
+
+    const withoutBrowBoundary = computeEngagementScore(raw, profile, weightsWithBrow)
+    expect(withoutBrowBoundary.normalized.browFurrow).toBeUndefined()
+
+    // Same as the existing 2-signal case (weights renormalize away browFurrow),
+    // so the index should match computing with just blinkRate/gazeStability.
+    const twoSignalOnly = computeEngagementScore(raw, profile, weights)
+    expect(withoutBrowBoundary.index).toBeCloseTo(twoSignalOnly.index)
+
+    // Changing the raw browFurrow value must not move the score, since it
+    // never entered normalized/index.
+    const differentBrowRaw = computeEngagementScore(
+      { ...raw, browFurrow: 0.9 },
+      profile,
+      weightsWithBrow,
+    )
+    expect(differentBrowRaw.score).toBe(withoutBrowBoundary.score)
+  })
 })
 
 describe('expandCeiling', () => {

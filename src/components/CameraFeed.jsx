@@ -275,10 +275,21 @@ export default function CameraFeed() {
     const irisCentroid = calculateIrisCentroid(landmarks)
     const noseTip = getNoseTip(landmarks)
 
+    // Per-user blink threshold (same derivation blink detection uses below),
+    // computed here so the gaze push can skip blink frames: closed/closing
+    // eyes make the vertical gaze ratio unreliable (see calculateGazeRatio),
+    // and letting those frames into gazeHistory would inject spikes into
+    // gaze-jitter variance.
+    const earTh = calibrationDone.current
+      ? (useSignalsStore.getState().calibrationProfile?.earThreshold ?? BLINK_THRESHOLD)
+      : BLINK_THRESHOLD
+
     const gazePoint = calculateGazeRatio(landmarks)
-    gazeHistory.current.push(gazePoint)
-    if (gazeHistory.current.length > GAZE_HISTORY_LENGTH) {
-      gazeHistory.current.shift()
+    if (ear >= earTh) {
+      gazeHistory.current.push(gazePoint)
+      if (gazeHistory.current.length > GAZE_HISTORY_LENGTH) {
+        gazeHistory.current.shift()
+      }
     }
 
     headHistory.current.push({ x: noseTip.x, y: noseTip.y })
@@ -303,10 +314,8 @@ export default function CameraFeed() {
     // Blink edge detection over a 15s window, scaled to blinks/min. Once
     // calibration is done, use the per-user threshold derived from rest-phase
     // EAR (falls back to the fixed constant pre-calibration / if missing).
+    // earTh is computed above, alongside the gaze-history push.
     let blinked = false
-    const earTh = calibrationDone.current
-      ? (useSignalsStore.getState().calibrationProfile?.earThreshold ?? BLINK_THRESHOLD)
-      : BLINK_THRESHOLD
     if (ear < earTh && lastEAR.current >= earTh) {
       blinked = true
       blinkTimestamps.current.push(now)

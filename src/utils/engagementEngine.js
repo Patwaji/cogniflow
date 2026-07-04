@@ -78,7 +78,7 @@ export function rescaleScore(rawSigmoid) {
 export function computeEngagementScore(raw, profile, weights = ENGINE_WEIGHTS) {
   const normalized = {}
   for (const key of Object.keys(weights)) {
-    if (raw[key] == null) continue
+    if (raw[key] == null || profile.boundaries[key] == null) continue
     normalized[key] = normalizeSignal(
       raw[key],
       profile.boundaries[key],

@@ -6,7 +6,7 @@ export const SIGNALS = [
   { key: 'pupilDelta', label: 'Pupil dilation', color: '#5fb8a5' },
   { key: 'browFurrow', label: 'Brow tension', color: '#d9a05b' },
   { key: 'gazeStability', label: 'Gaze stability', color: '#6aaed9' },
-  { key: 'headMovement', label: 'Head stillness', color: '#c98a9b' },
+  { key: 'headMovement', label: 'Head movement', color: '#c98a9b' },
 ]
 
 export const SIGNAL_COLORS = Object.fromEntries(

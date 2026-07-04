@@ -43,6 +43,28 @@ describe('calculateGazeRatio', () => {
     const g = calculateGazeRatio(lm)
     expect(g.x).toBeGreaterThan(0.6)
   })
+
+  it('clamps the y-ratio instead of exploding when lids nearly meet (blink-moment noise)', () => {
+    const lm = makeFace()
+    // Near-closed eye: bottom lid lands within 1e-7 of the top lid, so the
+    // denominator (lTop.y - lBot.y + 1e-6) shrinks toward the epsilon while
+    // the iris (still at its unmoved y=0.50, from makeFace) is ~0.04 away
+    // from the lids — a numerator/denominator ratio in the tens of
+    // thousands without clamping. Applied to both eyes.
+    lm[145] = { x: 0.35, y: 0.46 - 1e-7, z: 0 } // left bottom lid, ~touching left top lid (0.46)
+    lm[374] = { x: 0.65, y: 0.46 - 1e-7, z: 0 } // right bottom lid, ~touching right top lid (0.46)
+
+    // Sanity check: confirm this setup actually would explode without the
+    // clamp, so the assertion below is testing the clamp and not a no-op.
+    const lTop = 0.46, lBot = 0.46 - 1e-7, iris = 0.50
+    const unclamped = (iris - lBot) / (lTop - lBot + 1e-6)
+    expect(Math.abs(unclamped)).toBeGreaterThan(1000)
+
+    const g = calculateGazeRatio(lm)
+    expect(g.y).toBeGreaterThanOrEqual(-0.5)
+    expect(g.y).toBeLessThanOrEqual(1.5)
+    expect(Number.isFinite(g.y)).toBe(true)
+  })
 })
 
 // Minimal synthetic face for brow-ratio tests: only the indices
