@@ -94,6 +94,31 @@ describe('signals store v2', () => {
     expect(after).toBeGreaterThan(before)
   })
 
+  it('does not expand the ceiling when confidence is low', () => {
+    // profile set via setCalibrationProfile; push a high index under LOW confidence
+    const before = store.getState().calibrationProfile.ceilingW
+    pump(store, {
+      raw: { blinkRate: 4, gazeStability: 0.0001 },
+      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      confidenceInputs: { face: 0.2, iris: 0.2, illumination: 0.2, framerate: 0.2 }, // low
+      onScreen: true,
+    }, 120)
+    expect(store.getState().calibrationProfile.ceilingW).toBeCloseTo(before, 5)
+  })
+
+  it('caps ceiling expansion even under sustained high index + high confidence', () => {
+    const before = store.getState().calibrationProfile.ceilingW
+    pump(store, {
+      raw: { blinkRate: 4, gazeStability: 0.0001 },
+      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      confidenceInputs: { face: 1, iris: 1, illumination: 1, framerate: 1 },
+      onScreen: true,
+    }, 300)
+    const after = store.getState().calibrationProfile.ceilingW
+    expect(after).toBeGreaterThan(before)
+    expect(after).toBeLessThanOrEqual(before + 0.15 + 1e-6)
+  })
+
   it('does not score before a profile exists', async () => {
     const virgin = await freshStore()
     virgin.getState().updateSignals({

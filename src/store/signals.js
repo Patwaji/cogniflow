@@ -8,6 +8,8 @@ import useSettingsStore from './settings'
 const ROLLING_FRAMES = 90
 const DISTRACTED_HOLD_MS = 10000
 const FLOW_HOLD_MS = 30000
+const CEILING_CONFIDENCE_GATE = 0.6
+const CEILING_MAX_EXPANSION = 0.15
 
 const useSignalsStore = create((set, get) => ({
   blinkRate: 0,
@@ -24,6 +26,7 @@ const useSignalsStore = create((set, get) => ({
   rawSignals: { blinkRate: 0, gazeStability: 0 },
   indexHistory: [],
   _profileWeightsKey: '',
+  _originalCeilingW: null,
 
   isCalibrating: false,
   calibrationProgress: 0,
@@ -65,18 +68,25 @@ const useSignalsStore = create((set, get) => ({
     while (history.length > ROLLING_FRAMES) history.shift()
     const smoothedScore = Math.round(history.reduce((a, b) => a + b, 0) / history.length)
 
-    // Adaptive ceiling driven by the smoothed weighted index, not raw spikes.
-    const indexHistory = [...state.indexHistory, index]
-    while (indexHistory.length > ROLLING_FRAMES) indexHistory.shift()
-    const smoothedIndex = indexHistory.reduce((a, b) => a + b, 0) / indexHistory.length
-    if (indexHistory.length >= ROLLING_FRAMES) {
-      profile = expandCeiling(profile, smoothedIndex)
-    }
-
     const confidence = computeConfidence({
       ...confidenceInputs,
       calibration: profile.quality,
     })
+
+    // Adaptive ceiling driven by the smoothed weighted index, not raw spikes.
+    // Only when the reading is trustworthy, and never runaway.
+    const indexHistory = [...state.indexHistory, index]
+    while (indexHistory.length > ROLLING_FRAMES) indexHistory.shift()
+    const smoothedIndex = indexHistory.reduce((a, b) => a + b, 0) / indexHistory.length
+    const originalCeilingW = state._originalCeilingW ?? profile.ceilingW
+    if (
+      indexHistory.length >= ROLLING_FRAMES &&
+      confidence >= CEILING_CONFIDENCE_GATE
+    ) {
+      const cap = originalCeilingW + CEILING_MAX_EXPANSION
+      const target = Math.min(smoothedIndex, cap)
+      profile = expandCeiling(profile, target)
+    }
 
     const t = settings.thresholds
     const distractedTh = t.distracted ?? 20
@@ -145,6 +155,7 @@ const useSignalsStore = create((set, get) => ({
       confidence,
       calibrationProfile: profile,
       _profileWeightsKey: weightsKey,
+      _originalCeilingW: originalCeilingW,
       indexHistory,
       lastUpdated: now,
       cognitiveScore: smoothedScore,
@@ -178,6 +189,7 @@ const useSignalsStore = create((set, get) => ({
 
   setCalibrationProfile: (profile) => set({
     calibrationProfile: profile,
+    _originalCeilingW: profile.ceilingW,
     _profileWeightsKey: JSON.stringify(useSettingsStore.getState().weights),
     isCalibrating: false,
     calibrationProgress: 100,
@@ -223,6 +235,7 @@ const useSignalsStore = create((set, get) => ({
     calibrationProgress: 0,
     calibrationPhase: 'rest',
     calibrationProfile: null,
+    _originalCeilingW: null,
     focusState: 'calibrating',
     focusStateEntryTime: Date.now(),
     scoreHistory: [],
