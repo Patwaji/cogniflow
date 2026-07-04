@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { percentile, buildCalibrationProfile, reweightProfile } from '../calibrationProfile'
+import { percentile, buildCalibrationProfile, reweightProfile, deriveEarThreshold } from '../calibrationProfile'
 
 const WEIGHTS = { blinkRate: 50, gazeStability: 50 }
 
@@ -78,6 +78,26 @@ describe('buildCalibrationProfile', () => {
     }))
     const clean = buildCalibrationProfile(makeInput())
     expect(p.quality).toBeLessThan(clean.quality)
+  })
+})
+
+describe('deriveEarThreshold', () => {
+  it('sets the cutoff below the open-eye baseline (fraction of the high percentile)', () => {
+    // Mostly open-eye EAR ~0.30 with a few blink dips
+    const samples = [0.30, 0.31, 0.29, 0.30, 0.32, 0.10, 0.30, 0.31, 0.08, 0.30]
+    const th = deriveEarThreshold(samples)
+    expect(th).toBeGreaterThan(0.15)
+    expect(th).toBeLessThan(0.30)
+    // 0.7 x p70(open); the shared `percentile` helper is floor-based (see its
+    // own comment), so p70 of this array is 0.30, not the 0.31 a naive
+    // nearest-rank read might suggest → 0.30 * 0.7 = 0.21
+    expect(th).toBeCloseTo(0.21, 2)
+  })
+
+  it('clamps to the safe range for degenerate input', () => {
+    expect(deriveEarThreshold([0.9, 0.9, 0.9])).toBe(0.28)   // absurdly high → capped
+    expect(deriveEarThreshold([0.05, 0.05])).toBe(0.15)      // absurdly low → floored
+    expect(deriveEarThreshold([])).toBe(0.20)                 // no data → legacy default
   })
 })
 

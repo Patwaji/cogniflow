@@ -47,7 +47,7 @@ function makeCalibState() {
   return {
     phase: 'rest',
     phaseStart: null,
-    rest: { gazeSamples: [], blinks: 0, irisRadiusSum: 0, browDistSum: 0, frames: 0 },
+    rest: { gazeSamples: [], earSamples: [], blinks: 0, irisRadiusSum: 0, browDistSum: 0, frames: 0 },
     task: { gazeSamples: [], blinks: 0 },
     framesTotal: 0,
     framesWithFace: 0,
@@ -298,9 +298,14 @@ export default function CameraFeed() {
 
     const now = Date.now()
 
-    // Blink edge detection over a 15s window, scaled to blinks/min
+    // Blink edge detection over a 15s window, scaled to blinks/min. Once
+    // calibration is done, use the per-user threshold derived from rest-phase
+    // EAR (falls back to the fixed constant pre-calibration / if missing).
     let blinked = false
-    if (ear < BLINK_THRESHOLD && lastEAR.current >= BLINK_THRESHOLD) {
+    const earTh = calibrationDone.current
+      ? (useSignalsStore.getState().calibrationProfile?.earThreshold ?? BLINK_THRESHOLD)
+      : BLINK_THRESHOLD
+    if (ear < earTh && lastEAR.current >= earTh) {
       blinked = true
       blinkTimestamps.current.push(now)
     }
@@ -333,7 +338,7 @@ export default function CameraFeed() {
     if (!calibrationDone.current) {
       const armed = useSettingsStore.getState().onboardingDone || useSignalsStore.getState().calibrationArmed
       if (!armed) return
-      runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browDist })
+      runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browDist, ear })
       return
     }
 
@@ -365,7 +370,7 @@ export default function CameraFeed() {
     })
   }
 
-  function runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browDist }) {
+  function runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browDist, ear }) {
     if (!calib.current) {
       calib.current = makeCalibState()
       setCalibration(true)
@@ -391,6 +396,7 @@ export default function CameraFeed() {
         bucket.irisRadiusSum += avgIrisRadius
         bucket.browDistSum += browDist
         bucket.frames++
+        bucket.earSamples.push(ear)
       }
     }
 
@@ -425,6 +431,7 @@ export default function CameraFeed() {
       weights: useSettingsStore.getState().weights,
       faceDetectionRate: c.framesTotal ? c.framesWithFace / c.framesTotal : 0,
       now,
+      restEarSamples: c.rest.earSamples,
     })
 
     calibrationDone.current = true
