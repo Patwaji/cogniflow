@@ -13,6 +13,7 @@ const STATE_LABELS = {
   drowsy: 'Drowsy',
   away: 'Away',
   calibrating: 'Calibrating',
+  noface: 'No face',
 }
 
 const STATE_COLORS = {
@@ -21,6 +22,7 @@ const STATE_COLORS = {
   drowsy: 'var(--color-danger)',
   away: 'var(--color-text-secondary)',
   calibrating: 'var(--color-warning)',
+  noface: 'var(--color-text-secondary)',
 }
 
 const STATE_SUB = {
@@ -29,16 +31,27 @@ const STATE_SUB = {
   drowsy: 'You seem tired',
   away: 'Not at your desk',
   calibrating: 'Learning your baseline',
+  noface: 'Move into the camera view',
 }
 
 export default function CognitiveMeter() {
   const { focusState } = useCognitiveScore()
   const confidence = useSignalsStore((s) => s.confidence)
+  const faceDetected = useSignalsStore((s) => s.faceDetected)
+  const isCalibrating = useSignalsStore((s) => s.isCalibrating)
+
+  // Be honest in real time: if the camera can't see a face, say so rather than
+  // holding a stale "Focused". The session state machine keeps a grace window
+  // before it records "Away" (so a glance down at a book isn't counted as
+  // leaving), but the live view should reflect what the camera sees right now.
+  const effectiveState = !isCalibrating && !faceDetected ? 'noface' : (focusState || 'calibrating')
+
   // The ring reflects tracking confidence (how sure the read is), not a score.
-  const ringFill = Math.max(0, Math.min(1, confidence))
+  // With no face there is nothing to be confident about — empty the ring.
+  const ringFill = effectiveState === 'noface' ? 0 : Math.max(0, Math.min(1, confidence))
   const offset = CIRCUMFERENCE - CIRCUMFERENCE * ringFill
-  const stateColor = STATE_COLORS[focusState] || 'var(--color-warning)'
-  const label = STATE_LABELS[focusState] || 'Calibrating'
+  const stateColor = STATE_COLORS[effectiveState] || 'var(--color-warning)'
+  const label = STATE_LABELS[effectiveState] || 'Calibrating'
 
   return (
     <div className="cognitive-meter">
@@ -67,10 +80,10 @@ export default function CognitiveMeter() {
       </svg>
       <div className="meter-center">
         <span className="meter-state" style={{ color: stateColor }}>{label}</span>
-        <span className="meter-state-sub">{STATE_SUB[focusState] || ''}</span>
+        <span className="meter-state-sub">{STATE_SUB[effectiveState] || ''}</span>
       </div>
       <div className="meter-footer">
-        {confidence > 0 && (
+        {effectiveState !== 'noface' && confidence > 0 && (
           <span className="meter-confidence">
             Signal <span className="meter-confidence-value">{Math.round(confidence * 100)}%</span>
           </span>
