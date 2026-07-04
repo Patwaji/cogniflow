@@ -8,6 +8,7 @@ import {
   rescaleScore,
   computeEngagementScore,
   expandCeiling,
+  emaNext,
   SIGNAL_DIRECTIONS,
   SIGMOID_FLOOR_OUTPUT,
   SIGMOID_CEILING_OUTPUT,
@@ -162,6 +163,29 @@ describe('expandCeiling', () => {
 
   it('returns the same profile object when not exceeded', () => {
     expect(expandCeiling(profile, 0.6)).toBe(profile)
+  })
+})
+
+describe('emaNext', () => {
+  it('blends halfway with alpha=0.5', () => {
+    expect(emaNext(0, 100, 0.5)).toBe(50)
+  })
+
+  it('blends the previous EMA forward with alpha=0.5', () => {
+    expect(emaNext(50, 100, 0.5)).toBe(75)
+  })
+
+  it('returns the raw value when alpha=1 (no smoothing)', () => {
+    expect(emaNext(0, 100, 1)).toBe(100)
+    expect(emaNext(37, 82, 1)).toBe(82)
+  })
+
+  it('converges toward a constant value under repeated application', () => {
+    let prev = 0
+    for (let i = 0; i < 200; i++) {
+      prev = emaNext(prev, 100, 0.05)
+    }
+    expect(prev).toBeCloseTo(100, 2)
   })
 })
 

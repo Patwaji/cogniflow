@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { computeEngagementScore, expandCeiling } from '../utils/engagementEngine'
+import { computeEngagementScore, expandCeiling, emaNext } from '../utils/engagementEngine'
 import { reweightProfile } from '../utils/calibrationProfile'
 import { computeConfidence } from '../utils/confidenceModel'
 import { recordSessionSummary } from '../utils/profileHistory'
@@ -10,6 +10,10 @@ const DISTRACTED_HOLD_MS = 10000
 const FLOW_HOLD_MS = 30000
 const CEILING_CONFIDENCE_GATE = 0.6
 const CEILING_MAX_EXPANSION = 0.15
+// EMA smoothing constant tuned to match the responsiveness of the prior
+// 90-frame flat moving average (standard EMA/SMA equivalence: alpha = 2/(N+1)),
+// but with less lag and without blunting real dips/spikes.
+const EMA_ALPHA = 2 / (ROLLING_FRAMES + 1)
 
 const useSignalsStore = create((set, get) => ({
   blinkRate: 0,
@@ -38,7 +42,8 @@ const useSignalsStore = create((set, get) => ({
   onScreen: true,
   drowsy: false,
 
-  scoreHistory: [],
+  _emaScore: null,
+  rawScore: 0,
   distractedSince: null,
   flowSince: null,
 
@@ -64,9 +69,13 @@ const useSignalsStore = create((set, get) => ({
 
     const { score, index, normalized } = computeEngagementScore(raw, profile, settings.weights)
 
-    const history = [...state.scoreHistory, score]
-    while (history.length > ROLLING_FRAMES) history.shift()
-    const smoothedScore = Math.round(history.reduce((a, b) => a + b, 0) / history.length)
+    // EMA smoothing: less lag than the old 90-frame flat average and it
+    // preserves real dips/spikes instead of blunting them (important for
+    // retrospective validation), while `rawScore` keeps the unsmoothed
+    // per-frame value around for a later raw/smoothed toggle.
+    const rawScore = score
+    const nextEmaScore = state._emaScore == null ? rawScore : emaNext(state._emaScore, rawScore, EMA_ALPHA)
+    const smoothedScore = Math.round(nextEmaScore)
 
     const confidence = computeConfidence({
       ...confidenceInputs,
@@ -161,7 +170,8 @@ const useSignalsStore = create((set, get) => ({
       cognitiveScore: smoothedScore,
       focusState,
       focusStateEntryTime,
-      scoreHistory: history,
+      _emaScore: nextEmaScore,
+      rawScore,
       distractedSince,
       flowSince,
     })
@@ -173,7 +183,7 @@ const useSignalsStore = create((set, get) => ({
     calibrationPhase: val ? 'rest' : null,
     focusState: val ? 'calibrating' : 'normal',
     focusStateEntryTime: Date.now(),
-    scoreHistory: [],
+    _emaScore: null,
     indexHistory: [],
     distractedSince: null,
     flowSince: null,
@@ -196,7 +206,7 @@ const useSignalsStore = create((set, get) => ({
     calibrationPhase: null,
     focusState: 'normal',
     focusStateEntryTime: Date.now(),
-    scoreHistory: [],
+    _emaScore: null,
     indexHistory: [],
     distractedSince: null,
     flowSince: null,
@@ -219,7 +229,7 @@ const useSignalsStore = create((set, get) => ({
         drowsy: false,
         focusState: 'normal',
         focusStateEntryTime: Date.now(),
-        scoreHistory: [],
+        _emaScore: null,
         distractedSince: null,
         flowSince: null,
       }
@@ -238,7 +248,7 @@ const useSignalsStore = create((set, get) => ({
     _originalCeilingW: null,
     focusState: 'calibrating',
     focusStateEntryTime: Date.now(),
-    scoreHistory: [],
+    _emaScore: null,
     indexHistory: [],
     distractedSince: null,
     flowSince: null,
@@ -257,6 +267,7 @@ const useSignalsStore = create((set, get) => ({
     const point = {
       timestamp: Date.now(),
       cognitiveScore: state.cognitiveScore,
+      rawScore: state.rawScore,
       confidence: state.confidence,
       blinkRate: state.blinkRate,
       pupilDelta: state.pupilDelta,

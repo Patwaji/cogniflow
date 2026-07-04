@@ -96,3 +96,8 @@ export function expandCeiling(profile, smoothedIndex) {
   const ceilingW = smoothedIndex
   return { ...profile, ceilingW, ...deriveSigmoidParams(profile.floorW, ceilingW) }
 }
+
+// Exponential moving average step. alpha in (0,1]; higher = more responsive.
+export function emaNext(prev, value, alpha) {
+  return alpha * value + (1 - alpha) * prev
+}

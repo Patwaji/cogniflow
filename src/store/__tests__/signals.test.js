@@ -137,6 +137,54 @@ describe('signals store v2', () => {
     expect(virgin.getState().calibrationArmed).toBe(true)
   })
 
+  it('converges cognitiveScore toward the steady-state raw score via EMA', () => {
+    pump(store, {
+      raw: { blinkRate: 9, gazeStability: 0.0015 },
+      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      confidenceInputs: FULL_CONFIDENCE,
+      onScreen: true,
+    }, 200)
+    const { cognitiveScore, rawScore } = store.getState()
+    expect(cognitiveScore).toBeCloseTo(rawScore, 0)
+  })
+
+  it('exposes the unsmoothed rawScore alongside the EMA-smoothed cognitiveScore', () => {
+    pump(store, {
+      raw: { blinkRate: 12, gazeStability: 0.003 },
+      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      confidenceInputs: FULL_CONFIDENCE,
+      onScreen: true,
+    }, 1)
+    const { cognitiveScore, rawScore } = store.getState()
+    // first frame seeds the EMA from the raw score, so they match exactly
+    expect(cognitiveScore).toBe(Math.round(rawScore))
+  })
+
+  it('resets the EMA on recalibration so the next frame seeds from raw, not blended history', () => {
+    // Drive the score toward the task end.
+    pump(store, {
+      raw: { blinkRate: 9, gazeStability: 0.0015 },
+      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      confidenceInputs: FULL_CONFIDENCE,
+      onScreen: true,
+    }, 60)
+    const beforeReset = store.getState().cognitiveScore
+    expect(beforeReset).toBeGreaterThan(75)
+
+    store.getState().requestRecalibration()
+    store.getState().setCalibrationProfile(makeProfile())
+
+    // First post-reset frame is a rest-like reading; if the EMA still carried
+    // the pre-reset high score forward, this frame would land far above 25.
+    pump(store, {
+      raw: { blinkRate: 18, gazeStability: 0.006 },
+      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      confidenceInputs: FULL_CONFIDENCE,
+      onScreen: true,
+    }, 1)
+    expect(store.getState().cognitiveScore).toBeLessThan(25)
+  })
+
   it('includes confidence and raw values in session data points', () => {
     pump(store, {
       raw: { blinkRate: 9, gazeStability: 0.0015 },
@@ -150,5 +198,7 @@ describe('signals store v2', () => {
     expect(point.confidence).toBeGreaterThan(0)
     expect(point.rawBlinkRate).toBe(9)
     expect(point.rawGazeJitter).toBe(0.0015)
+    expect(point.rawScore).toBe(store.getState().rawScore)
+    expect(typeof point.cognitiveScore).toBe('number')
   })
 })
