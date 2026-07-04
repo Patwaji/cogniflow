@@ -54,10 +54,12 @@ describe('focusState machine', () => {
     expect(d.hold(OFF_MATERIAL, 10500)).toBe(FOCUS_STATES.DRIFTING)
   })
 
-  it('sustained low engagement past ~9s → drifting', () => {
+  it('low engagement while eyes stay on the material does NOT trip drifting', () => {
+    // Calmly reading/staring is low cognitive load but still on-task — a low
+    // engagement score must never, on its own, accuse the user of drifting.
     const d = driver()
     d.feed(ON_TASK); d.hold(ON_TASK, 2000)
-    expect(d.hold(LOW_ENGAGED, 9500)).toBe(FOCUS_STATES.DRIFTING)
+    expect(d.hold(LOW_ENGAGED, 15000)).toBe(FOCUS_STATES.FOCUSED)
   })
 
   it('returning from drifting requires a sustained on-task hold (not instant)', () => {

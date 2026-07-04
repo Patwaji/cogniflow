@@ -5,9 +5,14 @@
 // Priority (highest first): calibrating > away > drowsy > drifting > focused.
 // - away: no face past a generous grace window (a brief look-down at a book is
 //   NOT away).
-// - drifting: cumulative look-away past a threshold within a rolling window, OR
-//   sustained low engagement. Requires accumulation, so a quick glance never trips.
-// - returning to focused after any deviation requires a sustained on-task hold.
+// - drifting: cumulative time looking AWAY FROM the material past a threshold
+//   within a rolling window. Requires accumulation, so a quick glance never
+//   trips. Drifting is deliberately driven by the reliable "eyes on material"
+//   signal ONLY — not by the weak engagement score. Calmly reading/staring is
+//   low cognitive load but still on-task, so a low score must never, on its
+//   own, accuse the user of drifting.
+// - returning to focused after any deviation requires a sustained on-task hold
+//   (eyes back on the material), independent of the engagement score.
 // - low tracking confidence freezes the drift/focused decision rather than
 //   flipping on noise (away/drowsy still evaluated — presence is reliable).
 
@@ -23,7 +28,6 @@ export const FOCUS_PARAMS = {
   awayGraceMs: 20000,       // no-face this long → away
   driftWindowMs: 60000,     // rolling window for cumulative look-away
   driftLookAwayMs: 10000,   // cumulative off-material in the window → drifting
-  driftEngagementMs: 9000,  // sustained low engagement → drifting
   clearHoldMs: 3000,        // on-task hold required to clear a deviation
   minConfidence: 0.4,       // below this, freeze drift/focused decision
 }
@@ -39,7 +43,6 @@ export function createFocusMachine(now) {
     lastStepAt: now,
     lastPresentAt: now,
     lookAway: [],          // [{ t, dt, off }] pruned to driftWindowMs
-    lowEngagedSince: null,
     onTaskHoldSince: null,
   }
 }
@@ -62,15 +65,10 @@ export function stepFocusMachine(machine, input, now, params = FOCUS_PARAMS) {
   let cumulativeOffMs = 0
   for (const s of m.lookAway) if (s.off) cumulativeOffMs += s.dt
 
-  // Sustained low-engagement timer (present, on material, but not engaged).
-  if (input.present && input.onMaterial && !input.engaged) {
-    if (m.lowEngagedSince == null) m.lowEngagedSince = now
-  } else {
-    m.lowEngagedSince = null
-  }
-
-  // On-task hold timer (present + on material + engaged), for return-and-hold.
-  const onTask = input.present && input.onMaterial && input.engaged
+  // On-task hold timer (eyes on the material), for return-and-hold. The
+  // engagement score deliberately does NOT gate this — a calm, low-load reader
+  // is still on-task and must be able to clear back to focused.
+  const onTask = input.present && input.onMaterial
   if (onTask) {
     if (m.onTaskHoldSince == null) m.onTaskHoldSince = now
   } else {
@@ -91,21 +89,19 @@ export function stepFocusMachine(machine, input, now, params = FOCUS_PARAMS) {
       ? m.state
       : FOCUS_STATES.FOCUSED
   } else {
-    const driftingActive =
-      cumulativeOffMs >= params.driftLookAwayMs ||
-      (m.lowEngagedSince != null && now - m.lowEngagedSince >= params.driftEngagementMs)
+    // Drifting is driven by sustained looking-away only (the reliable signal).
+    const driftingActive = cumulativeOffMs >= params.driftLookAwayMs
 
     if (m.state === FOCUS_STATES.FOCUSED || m.state === FOCUS_STATES.CALIBRATING) {
       next = driftingActive ? FOCUS_STATES.DRIFTING : FOCUS_STATES.FOCUSED
     } else {
       // Returning from a deviation (drifting / cleared away / cleared drowsy):
-      // require a sustained on-task hold, then reset accumulators so stale
-      // look-away doesn't immediately re-trip drift.
+      // require a sustained on-task hold, then reset the look-away accumulator
+      // so stale look-away doesn't immediately re-trip drift.
       const held = m.onTaskHoldSince != null && now - m.onTaskHoldSince >= params.clearHoldMs
       if (held) {
         next = FOCUS_STATES.FOCUSED
         m.lookAway = []
-        m.lowEngagedSince = null
       } else {
         next = m.state
       }

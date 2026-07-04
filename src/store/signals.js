@@ -101,8 +101,10 @@ const useSignalsStore = create(subscribeWithSelector((set, get) => ({
     }
 
     // Drive the formal four-state focus model. Inputs are plain booleans
-    // derived from the reliable signals; the reducer owns all hysteresis.
-    const focusedTh = settings.thresholds.focused ?? 55
+    // derived from the RELIABLE signals (presence, eyes-on-material,
+    // drowsiness). Drifting is driven by looking-away only — the weak
+    // engagement score deliberately does not gate focus states, so calm,
+    // low-load reading is never mislabelled "drifting".
     const machine = state._focusMachine ?? createFocusMachine(now)
     const { state: focusState, since: focusStateEntryTime } = stepFocusMachine(
       machine,
@@ -110,7 +112,6 @@ const useSignalsStore = create(subscribeWithSelector((set, get) => ({
         present: state.faceDetected,
         onMaterial: onScreen,
         drowsy: state.drowsy,
-        engaged: smoothedScore >= focusedTh,
         confidence,
         calibrating: state.isCalibrating,
       },
@@ -185,7 +186,7 @@ const useSignalsStore = create(subscribeWithSelector((set, get) => ({
     const machine = state._focusMachine ?? createFocusMachine(now)
     const { state: focusState, since: focusStateEntryTime } = stepFocusMachine(
       machine,
-      { present: false, onMaterial: false, drowsy: state.drowsy, engaged: false, confidence: 0, calibrating: state.isCalibrating },
+      { present: false, onMaterial: false, drowsy: state.drowsy, confidence: 0, calibrating: state.isCalibrating },
       now,
     )
     return { focusState, focusStateEntryTime, _focusMachine: machine }
