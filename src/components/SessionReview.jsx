@@ -183,7 +183,7 @@ export default function SessionReview({ onDone }) {
             </button>
           </div>
           <p className="review-validation-note">
-            Optional. Your answer stays on this device and helps validate the score.
+            Optional. Your answer stays on this device and helps it learn your patterns.
           </p>
         </div>
       )}

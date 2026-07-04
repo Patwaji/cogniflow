@@ -490,7 +490,7 @@ export default function CameraFeed() {
       <div className="camera-permission-denied">
         <div className="permission-icon"><Camera size={40} /></div>
         <h2>Camera Access Required</h2>
-        <p>CogniFlow needs webcam access to track your cognitive load.</p>
+        <p>CogniFlow needs webcam access to be your focus companion.</p>
         <p>Please grant camera permission and restart.</p>
       </div>
     )

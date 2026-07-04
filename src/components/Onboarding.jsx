@@ -169,8 +169,8 @@ export default function Onboarding({ onDone }) {
           <div className="onboarding-icon onboarding-icon-success"><CircleCheck size={ICON_SIZE} /></div>
           <h2>Calibration complete</h2>
           <p className="onboarding-text">
-            We recorded your resting and task baselines to personalize your
-            focus score.
+            We recorded your resting and task baselines to personalize how it
+            reads your focus.
           </p>
           <button className="onboarding-btn" onClick={next}>Continue</button>
           <div className="onboarding-dots">
@@ -187,7 +187,7 @@ export default function Onboarding({ onDone }) {
           <h2>You are all set!</h2>
           <p className="onboarding-text">
             Your baseline has been recorded. You can now start using the dashboard
-            to track your cognitive load during any session.
+            to keep you company during any session.
           </p>
           <button className="onboarding-btn" onClick={finish}>Go to dashboard</button>
           <div className="onboarding-dots">
