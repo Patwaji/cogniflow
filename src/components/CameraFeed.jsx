@@ -70,6 +70,7 @@ export default function CameraFeed() {
   const setCalibrationPhase = useSignalsStore((s) => s.setCalibrationPhase)
   const setCalibrationProfile = useSignalsStore((s) => s.setCalibrationProfile)
   const setFaceDetected = useSignalsStore((s) => s.setFaceDetected)
+  const tickFocusAbsent = useSignalsStore((s) => s.tickFocusAbsent)
   const setDrowsy = useSignalsStore((s) => s.setDrowsy)
   const recalibrateTick = useSignalsStore((s) => s._recalibrateTick)
 
@@ -223,6 +224,7 @@ export default function CameraFeed() {
       } else {
         setFaceDetected(false)
         pushFace(0)
+        tickFocusAbsent()
       }
 
       animFrameRef.current = requestAnimationFrame(detectLoop)

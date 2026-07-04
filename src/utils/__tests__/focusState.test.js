@@ -96,6 +96,38 @@ describe('focusState machine', () => {
       .toBe(FOCUS_STATES.AWAY)
   })
 
+  it('returning on-task after AWAY still requires a full fresh clearHoldMs hold', () => {
+    // Establish a long-running on-task hold well past clearHoldMs while
+    // FOCUSED, then go absent long enough to trip AWAY. Presence itself
+    // naturally clears onTaskHoldSince (onTask requires present:true), so
+    // this mainly guards against a regression in that natural reset.
+    const d = driver()
+    d.feed(ON_TASK)
+    d.hold(ON_TASK, 5000)
+    expect(d.hold(ABSENT, 20500)).toBe(FOCUS_STATES.AWAY)
+
+    // Return on-task: must take a full clearHoldMs from here, not ~1 tick.
+    expect(d.feed(ON_TASK)).toBe(FOCUS_STATES.AWAY) // first tick: hold just started
+    expect(d.hold(ON_TASK, 1500)).toBe(FOCUS_STATES.AWAY) // < 3s hold → still away
+    expect(d.hold(ON_TASK, 2000)).toBe(FOCUS_STATES.FOCUSED) // total > 3s → cleared
+  })
+
+  it('returning on-task after DROWSY requires a fresh clearHoldMs hold, not a stale pre-drowsy one', () => {
+    // The bug this guards: onTask (present+onMaterial+engaged) does NOT
+    // depend on the drowsy flag, so a long-held onTaskHoldSince from before
+    // drowsiness started survives the FOCUSED→DROWSY transition unless the
+    // reducer explicitly clears it. Without the fix, the very next on-task
+    // tick after DROWSY would see a stale timestamp already older than
+    // clearHoldMs and clear back to FOCUSED in ~1 tick instead of 3s.
+    const d = driver()
+    d.feed(ON_TASK)
+    d.hold(ON_TASK, 5000) // onTaskHoldSince set long before drowsy starts
+    expect(d.feed({ ...ON_TASK, drowsy: true })).toBe(FOCUS_STATES.DROWSY)
+    expect(d.feed(ON_TASK)).toBe(FOCUS_STATES.DROWSY) // hold just (re)started, not stale
+    expect(d.hold(ON_TASK, 1500)).toBe(FOCUS_STATES.DROWSY) // < 3s → still drowsy
+    expect(d.hold(ON_TASK, 2000)).toBe(FOCUS_STATES.FOCUSED) // total > 3s → cleared
+  })
+
   it('exposes tunable params', () => {
     expect(FOCUS_PARAMS.awayGraceMs).toBe(20000)
     expect(FOCUS_PARAMS.driftLookAwayMs).toBe(10000)

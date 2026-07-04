@@ -169,6 +169,23 @@ const useSignalsStore = create((set, get) => ({
     faceDetected: detected,
   }),
 
+  // Steps ONLY the focus machine with an absent frame (no landmarks, so no
+  // scoring input exists). Called from the face-not-detected branch of the
+  // detect loop — without this, `stepFocusMachine` is never fed a
+  // `present:false` frame and `lastPresentAt` never ages past the away-grace
+  // window, so AWAY is unreachable once the user actually leaves the frame.
+  tickFocusAbsent: () => set((state) => {
+    if (!state.calibrationProfile) return {}
+    const now = Date.now()
+    const machine = state._focusMachine ?? createFocusMachine(now)
+    const { state: focusState, since: focusStateEntryTime } = stepFocusMachine(
+      machine,
+      { present: false, onMaterial: false, drowsy: state.drowsy, engaged: false, confidence: 0, calibrating: state.isCalibrating },
+      now,
+    )
+    return { focusState, focusStateEntryTime, _focusMachine: machine }
+  }),
+
   setDrowsy: (val) => set((state) => {
     if (val && !state.drowsy) {
       return {

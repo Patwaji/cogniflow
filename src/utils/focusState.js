@@ -115,6 +115,12 @@ export function stepFocusMachine(machine, input, now, params = FOCUS_PARAMS) {
   if (next !== m.state) {
     m.state = next
     m.since = now
+    // Entering a fresh deviation must not let a stale pre-deviation on-task
+    // hold instantly satisfy the return-and-hold requirement — force a full
+    // clearHoldMs hold from whenever on-task resumes.
+    if (next === FOCUS_STATES.DROWSY || next === FOCUS_STATES.AWAY) {
+      m.onTaskHoldSince = null
+    }
   }
   return { machine: m, state: m.state, since: m.since }
 }

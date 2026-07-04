@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { buildCalibrationProfile } from '../../utils/calibrationProfile'
-import { FOCUS_PARAMS } from '../../utils/focusState'
+import { FOCUS_PARAMS, FOCUS_STATES } from '../../utils/focusState'
 
 const WEIGHTS = { blinkRate: 50, gazeStability: 50 }
 
@@ -320,6 +320,50 @@ describe('signals store v2', () => {
       onScreen: false,
     })
     expect(s.getState().focusState).not.toBe('away')
+  })
+
+  it('tickFocusAbsent steps the focus machine on the absent path without needing updateSignals', () => {
+    // This is the wiring CameraFeed relies on for the face-not-detected
+    // branch of the detect loop: no landmarks exist there, so updateSignals
+    // (which needs raw/display/confidenceInputs) can't be called — only the
+    // focus machine should advance.
+    const before = store.getState().focusState
+    expect(typeof before).toBe('string')
+
+    store.getState().tickFocusAbsent()
+
+    // A single absent tick right after calibration must NOT immediately
+    // report "away" — the grace window hasn't elapsed yet.
+    expect(store.getState().focusState).not.toBe('away')
+    expect(Object.values(FOCUS_STATES)).toContain(store.getState().focusState)
+  })
+
+  it('reaches "away" via repeated tickFocusAbsent alone, matching the real face-not-detected loop path', () => {
+    // Regression test for the production bug: CameraFeed's face-not-detected
+    // branch never called updateSignals, so the focus machine froze and
+    // "away" was unreachable. Here we drive the state purely through
+    // tickFocusAbsent (no updateSignals at all) to confirm the wiring works
+    // end to end, the way the detect loop's else-branch actually calls it.
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(3_000_000)
+      store.getState().tickFocusAbsent()
+      expect(store.getState().focusState).not.toBe('away')
+
+      vi.advanceTimersByTime(FOCUS_PARAMS.awayGraceMs + 1)
+      store.getState().tickFocusAbsent()
+
+      expect(store.getState().focusState).toBe('away')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('tickFocusAbsent is a no-op before a calibration profile exists', async () => {
+    const virgin = await freshStore()
+    const before = virgin.getState().focusState
+    virgin.getState().tickFocusAbsent()
+    expect(virgin.getState().focusState).toBe(before)
   })
 
   it('includes confidence and raw values in session data points', () => {
