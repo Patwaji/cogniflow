@@ -10,6 +10,7 @@ import {
   calculateIrisRadius,
   calculateBrowDistance,
   calculateIrisCentroid,
+  calculateGazeRatio,
   getNoseTip,
   clamp01,
   LEFT_IRIS_IDS,
@@ -272,7 +273,8 @@ export default function CameraFeed() {
     const irisCentroid = calculateIrisCentroid(landmarks)
     const noseTip = getNoseTip(landmarks)
 
-    gazeHistory.current.push(irisCentroid)
+    const gazePoint = calculateGazeRatio(landmarks)
+    gazeHistory.current.push(gazePoint)
     if (gazeHistory.current.length > GAZE_HISTORY_LENGTH) {
       gazeHistory.current.shift()
     }

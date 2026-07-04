@@ -77,6 +77,28 @@ function calculateIrisCentroid(landmarks) {
   }
 }
 
+// Gaze position as within-eye ratios (iris relative to that eye's own corners
+// and lids), averaged L/R. Because the iris AND the reference corners move
+// together under head translation/scale, the ratio is invariant to head motion
+// — unlike a raw iris centroid, whose "jitter" is dominated by head movement.
+// This is the head-pose-correct input for gaze-stability variance.
+function calculateGazeRatio(landmarks) {
+  const li = centroid(LEFT_IRIS_IDS.map((i) => landmarks[i]))
+  const ri = centroid(RIGHT_IRIS_IDS.map((i) => landmarks[i]))
+
+  const lIn = landmarks[LEFT_EYE_INNER], lOut = landmarks[LEFT_EYE_OUTER]
+  const lTop = landmarks[LEFT_EYE_TOP], lBot = landmarks[LEFT_EYE_BOTTOM]
+  const rIn = landmarks[RIGHT_EYE_INNER], rOut = landmarks[RIGHT_EYE_OUTER]
+  const rTop = landmarks[RIGHT_EYE_TOP], rBot = landmarks[RIGHT_EYE_BOTTOM]
+
+  const hL = (li.x - lIn.x) / (lOut.x - lIn.x + 1e-6)
+  const hR = (ri.x - rIn.x) / (rOut.x - rIn.x + 1e-6)
+  const vL = (li.y - lBot.y) / (lTop.y - lBot.y + 1e-6)
+  const vR = (ri.y - rBot.y) / (rTop.y - rBot.y + 1e-6)
+
+  return { x: (hL + hR) / 2, y: (vL + vR) / 2 }
+}
+
 function getNoseTip(landmarks) {
   return landmarks[NOSE_TIP]
 }
@@ -125,6 +147,7 @@ export {
   calculateIrisRadius,
   calculateBrowDistance,
   calculateIrisCentroid,
+  calculateGazeRatio,
   getNoseTip,
   centroid,
   variance,
