@@ -76,14 +76,16 @@ export default function Onboarding({ onDone }) {
       {current === 'welcome' && (
         <div className="onboarding-card">
           <div className="onboarding-icon"><Brain size={ICON_SIZE} /></div>
-          <h2>Welcome to CogniFlow</h2>
+          <h2>Your quiet study companion</h2>
           <p className="onboarding-text">
-            CogniFlow uses your webcam to monitor your cognitive load in real time.
-            Your focus score is driven by your blink rate and gaze stability, with
-            additional facial signals like pupil dilation, brow tension, and head
-            movement shown for context.
+            A gentle body-double that watches for when your focus slips, and nudges you only then.
+            We read your facial signals in real time - blink rate, gaze stability, pupil dilation,
+            and subtle cues like brow tension and head movement - to sense when your attention drifts.
           </p>
-          <p className="onboarding-text">All processing is 100% local and offline.</p>
+          <p className="onboarding-promise">
+            Everything stays on this device. Your camera feed is never recorded, never uploaded,
+            never leaves your computer.
+          </p>
           <button className="onboarding-btn" onClick={next}>Get started</button>
           <div className="onboarding-dots">
             {STEPS.map((_, i) => (
@@ -101,8 +103,8 @@ export default function Onboarding({ onDone }) {
             CogniFlow needs camera access to track your facial signals.
             When prompted, click <strong>Allow</strong>.
           </p>
-          <p className="onboarding-text">
-            Your video feed never leaves your computer.
+          <p className="onboarding-promise">
+            Your video feed never leaves your computer. No recordings, no uploads, no storage.
           </p>
           {camError && <p className="onboarding-error">{camError}</p>}
           {camGranted ? (

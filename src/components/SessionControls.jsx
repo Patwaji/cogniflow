@@ -38,6 +38,7 @@ export default function SessionControls({ onHistory, onSettings, onTrends }) {
       <div className="session-buttons">
         {sessionState === 'idle' && (
           <>
+            <p className="session-companion-sub">Start a session and I'll keep you company - quietly, and only speak up if your focus drifts.</p>
             <input
               className="session-intention"
               type="text"

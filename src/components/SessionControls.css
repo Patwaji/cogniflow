@@ -70,6 +70,13 @@
   border-color: var(--color-border-strong);
 }
 
+.session-companion-sub {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-sm);
+  line-height: 1.5;
+}
+
 .session-intention {
   width: 100%;
   padding: 9px 12px;
