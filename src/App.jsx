@@ -15,6 +15,7 @@ import CalibrationOverlay from './components/CalibrationOverlay'
 import useSettingsStore from './store/settings'
 import useSignalsStore from './store/signals'
 import useNotificationWatcher from './hooks/useNotificationWatcher'
+import useNudgeWatcher from './hooks/useNudgeWatcher'
 
 function App() {
   const [view, setView] = useState('dashboard')
@@ -22,6 +23,7 @@ function App() {
   const onboardingDone = useSettingsStore((s) => s.onboardingDone)
   const [showOnboarding, setShowOnboarding] = useState(!onboardingDone)
   useNotificationWatcher()
+  useNudgeWatcher()
 
   // A finished-but-unsaved session takes over the dashboard with its review.
   const sessionState = useSignalsStore((s) => s.sessionState)
