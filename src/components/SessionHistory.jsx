@@ -17,6 +17,12 @@ function formatDuration(sec) {
   return `${m}m ${s}s`
 }
 
+function formatMinutes(sec) {
+  if (sec == null) return '--'
+  const m = Math.floor(sec / 60)
+  return `${m}m`
+}
+
 export default function SessionHistory({ onBack, onSelect }) {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -74,13 +80,15 @@ export default function SessionHistory({ onBack, onSelect }) {
             </div>
             <div className="history-row-right">
               <span className="history-row-score">
-                {session.summary?.avgScore ?? '--'}
+                {formatMinutes(session.summary?.longestFocusedStretchSec)}
               </span>
-              <span className="history-row-label">avg</span>
+              <span className="history-row-label">longest focus</span>
               <span className="history-row-peak">
-                {session.summary?.peakScore ?? '--'}
+                {session.summary?.focusedSeconds != null
+                  ? formatMinutes(session.summary.focusedSeconds)
+                  : '--'}
               </span>
-              <span className="history-row-label">peak</span>
+              <span className="history-row-label">focused</span>
             </div>
           </button>
         ))}
