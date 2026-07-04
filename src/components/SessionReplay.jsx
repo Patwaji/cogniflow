@@ -4,8 +4,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { SIGNALS } from '../lib/signalMeta'
-import useSettingsStore from '../store/settings'
-import ScoreChart from './ScoreChart'
+import { buildSessionStory } from '../lib/sessionStory'
 import './SessionReplay.css'
 
 function formatDuration(sec) {
@@ -24,12 +23,9 @@ function formatDate(ts) {
 }
 
 export default function SessionReplay({ session, onBack }) {
-  const thresholds = useSettingsStore((s) => s.thresholds)
-
   const chartData = useMemo(() => {
     return session.dataPoints.map((p, i) => ({
       elapsed: i * 5,
-      cognitiveScore: p.cognitiveScore,
       confidence: p.confidence ?? 0,
       blinkRate: Math.round((p.blinkRate ?? 0) * 100),
       pupilDelta: Math.round((p.pupilDelta ?? 0) * 100),
@@ -39,13 +35,15 @@ export default function SessionReplay({ session, onBack }) {
     }))
   }, [session])
 
+  const story = useMemo(
+    () => buildSessionStory(session.dataPoints, session.startTime),
+    [session],
+  )
+
   const summary = session.summary || {}
   const duration = session.duration || 0
 
   const gt = session.groundTruth
-  const highlight = gt
-    ? { startElapsed: gt.segmentStartElapsed, endElapsed: gt.segmentEndElapsed }
-    : null
 
   const SIGNAL_CHARTS = SIGNALS
 
@@ -63,16 +61,10 @@ export default function SessionReplay({ session, onBack }) {
 
       <div className="replay-summary">
         <div className="summary-card">
-          <span className="summary-value">{summary.avgScore ?? '--'}</span>
-          <span className="summary-label">Avg score</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-value summary-peak">{summary.peakScore ?? '--'}</span>
-          <span className="summary-label">Peak</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-value summary-low">{summary.lowestScore ?? '--'}</span>
-          <span className="summary-label">Lowest</span>
+          <span className="summary-value summary-longest">
+            {summary.longestFocusedStretchSec ? formatDuration(summary.longestFocusedStretchSec) : '--'}
+          </span>
+          <span className="summary-label">Longest focus</span>
         </div>
         <div className="summary-card">
           <span className="summary-value summary-flow">
@@ -93,14 +85,27 @@ export default function SessionReplay({ session, onBack }) {
       </div>
 
       <div className="replay-chart-section">
-        <h3 className="replay-section-title">Cognitive Load</h3>
-        <ScoreChart
-          data={chartData}
-          thresholds={thresholds}
-          highlight={highlight}
-          height={260}
-          gradientId="replay-grad"
-        />
+        <h3 className="replay-section-title">Focus timeline</h3>
+        <div className="review-timeline" aria-label="Session timeline">
+          {story.segments.map((seg, i) => {
+            const total = story.segments[story.segments.length - 1]?.endElapsed || 1
+            const width = ((seg.endElapsed - seg.startElapsed) / total) * 100
+            return (
+              <div
+                key={i}
+                className={`review-seg review-seg-${seg.state}`}
+                style={{ width: `${width}%` }}
+                title={`${seg.state} · ${Math.round(seg.durationSec)}s`}
+              />
+            )
+          })}
+        </div>
+        <div className="review-legend">
+          <span><i className="dot dot-focused" /> Focused</span>
+          <span><i className="dot dot-drifting" /> Drifting</span>
+          <span><i className="dot dot-drowsy" /> Drowsy</span>
+          <span><i className="dot dot-away" /> Away</span>
+        </div>
         {gt && (
           <p className="replay-groundtruth">
             You confirmed this {gt.direction === 'drop' ? 'dip' : 'rise'}:{' '}
