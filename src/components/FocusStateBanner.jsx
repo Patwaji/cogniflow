@@ -3,13 +3,11 @@ import useSignalsStore from '../store/signals'
 import './FocusStateBanner.css'
 
 const STATE_CONFIG = {
-  flow: { color: 'var(--color-flow)', bg: 'rgba(94, 92, 230, 0.12)', border: 'rgba(94, 92, 230, 0.25)' },
   focused: { color: 'var(--color-success)', bg: 'rgba(52, 199, 89, 0.10)', border: 'rgba(52, 199, 89, 0.2)' },
-  normal: { color: 'var(--color-text-secondary)', bg: 'transparent', border: 'transparent' },
-  distracted: { color: 'var(--color-distracted)', bg: 'rgba(255, 69, 58, 0.10)', border: 'rgba(255, 69, 58, 0.2)' },
+  drifting: { color: 'var(--color-warning)', bg: 'rgba(232, 150, 60, 0.10)', border: 'rgba(232, 150, 60, 0.2)' },
+  drowsy: { color: 'var(--color-danger)', bg: 'rgba(224, 85, 72, 0.14)', border: 'rgba(224, 85, 72, 0.3)' },
   away: { color: 'var(--color-text-secondary)', bg: 'transparent', border: 'transparent' },
-  calibrating: { color: 'var(--color-warning)', bg: 'rgba(255, 159, 10, 0.10)', border: 'rgba(255, 159, 10, 0.2)' },
-  drowsy: { color: '#ff3b30', bg: 'rgba(255, 59, 48, 0.15)', border: 'rgba(255, 59, 48, 0.35)' },
+  calibrating: { color: 'var(--color-warning)', bg: 'rgba(232, 150, 60, 0.10)', border: 'rgba(232, 150, 60, 0.2)' },
 }
 
 function formatDuration(seconds) {
@@ -28,29 +26,24 @@ export default function FocusStateBanner() {
     return Math.floor((Date.now() - focusStateEntryTime) / 1000)
   }, [focusState, focusStateEntryTime])
 
-  const config = STATE_CONFIG[focusState] || STATE_CONFIG.normal
+  const config = STATE_CONFIG[focusState] || STATE_CONFIG.calibrating
 
   let message
-  if (focusState === 'flow') {
-    message = `In flow for ${formatDuration(secondsInState)}`
-  } else if (focusState === 'focused') {
-    message = 'Focused'
-  } else if (focusState === 'distracted') {
-    message = 'You seem distracted'
-  } else if (focusState === 'away') {
-    message = 'Looking away'
-  } else if (focusState === 'normal') {
-    message = ''
+  if (focusState === 'focused') {
+    message = `Focused for ${formatDuration(secondsInState)}`
+  } else if (focusState === 'drifting') {
+    message = 'Your attention drifted'
   } else if (focusState === 'drowsy') {
-    message = 'Drowsiness detected. Consider a short break.'
+    message = 'You seem to be fading. A short break might help.'
+  } else if (focusState === 'away') {
+    message = ''
   } else {
     message = 'Calibrating...'
   }
 
   if (!message) return <div className="focus-banner-spacer" />
 
-  // Pulse only on live-attention states where the dot conveys real status
-  const pulse = focusState === 'flow' || focusState === 'drowsy'
+  const pulse = focusState === 'drowsy'
 
   return (
     <div

@@ -53,9 +53,9 @@ export default function SessionReview({ onDone }) {
     const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
     const peak = Math.max(...scores)
     const low = Math.min(...scores)
-    const flowSec = dataPoints.filter((p) => p.focusState === 'flow').length * 5
+    const focusedSec = dataPoints.filter((p) => p.focusState === 'focused').length * 5
     const duration = Math.floor((endTime - startTime) / 1000)
-    return { avg, peak, low, flowSec, duration }
+    return { avg, peak, low, focusedSec, duration }
   }, [dataPoints, startTime, endTime])
 
   async function handleSave() {
@@ -118,7 +118,7 @@ export default function SessionReview({ onDone }) {
         </div>
         <div className="review-stat">
           <span className="review-stat-value review-stat-flow">
-            {stats.flowSec ? fmtDuration(stats.flowSec) : '-'}
+            {stats.focusedSec ? fmtDuration(stats.focusedSec) : '-'}
           </span>
           <span className="review-stat-label">In flow</span>
         </div>

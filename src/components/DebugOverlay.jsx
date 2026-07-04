@@ -5,10 +5,9 @@ import './DebugOverlay.css'
 
 const FOCUS_COLORS = {
   calibrating: 'var(--color-warning)',
-  distracted: 'var(--color-distracted)',
-  normal: 'var(--color-text-secondary)',
+  drifting: 'var(--color-warning)',
+  away: 'var(--color-text-secondary)',
   focused: 'var(--color-success)',
-  flow: 'var(--color-flow)',
   drowsy: 'var(--color-danger)',
 }
 

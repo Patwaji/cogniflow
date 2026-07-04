@@ -8,23 +8,19 @@ const CENTER = SIZE / 2
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
 const STATE_LABELS = {
-  flow: 'Flow',
   focused: 'Focused',
-  normal: 'Normal',
-  distracted: 'Distracted',
+  drifting: 'Drifting',
+  drowsy: 'Drowsy',
   away: 'Away',
   calibrating: 'Calibrating',
-  drowsy: 'Drowsy',
 }
 
 const STATE_COLORS = {
-  flow: 'var(--color-flow)',
   focused: 'var(--color-focused)',
-  normal: 'var(--color-text-secondary)',
-  distracted: 'var(--color-distracted)',
+  drifting: 'var(--color-warning)',
+  drowsy: 'var(--color-danger)',
   away: 'var(--color-text-secondary)',
   calibrating: 'var(--color-warning)',
-  drowsy: 'var(--color-danger)',
 }
 
 function getScoreColor(score) {
@@ -39,7 +35,7 @@ export default function CognitiveMeter() {
   const score = cognitiveScore ?? 0
   const offset = CIRCUMFERENCE - (CIRCUMFERENCE * score) / 100
   const color = getScoreColor(score)
-  const stateColor = STATE_COLORS[focusState] || STATE_COLORS.normal
+  const stateColor = STATE_COLORS[focusState] || 'var(--color-warning)'
 
   return (
     <div className="cognitive-meter">
