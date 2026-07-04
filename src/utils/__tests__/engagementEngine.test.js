@@ -194,5 +194,6 @@ describe('SIGNAL_DIRECTIONS', () => {
     expect(SIGNAL_DIRECTIONS.blinkRate).toBe(-1)
     expect(SIGNAL_DIRECTIONS.gazeStability).toBe(-1)
     expect(SIGNAL_DIRECTIONS.pupilRatio).toBe(1)
+    expect(SIGNAL_DIRECTIONS.browFurrow).toBe(-1)
   })
 })

@@ -2,13 +2,14 @@ import { create } from 'zustand'
 
 const STORAGE_KEY = 'cogniflow_settings'
 
-const SETTINGS_VERSION = 2
+const SETTINGS_VERSION = 3
 
 const DEFAULTS = {
   _v: SETTINGS_VERSION,
   weights: {
-    blinkRate: 50,
-    gazeStability: 50,
+    blinkRate: 40,
+    gazeStability: 35,
+    browFurrow: 25,
   },
   thresholds: {
     distracted: 20,

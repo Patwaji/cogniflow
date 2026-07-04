@@ -13,10 +13,11 @@ export const SIGNAL_DIRECTIONS = {
   blinkRate: -1,
   gazeStability: -1, // raw value is gaze jitter variance; steadier = more load
   pupilRatio: 1, // reserved for v2 pupillometry — no pupil landmark in MediaPipe
+  browFurrow: -1, // raw value is inter-brow/face-width ratio; furrowing shrinks it = more load
 }
 
-// Informed priors: blink + fixation stability carry the score (percent).
-export const ENGINE_WEIGHTS = { blinkRate: 50, gazeStability: 50 }
+// Informed priors: blink + fixation stability + brow tension carry the score (percent).
+export const ENGINE_WEIGHTS = { blinkRate: 40, gazeStability: 35, browFurrow: 25 }
 
 export const MIN_ANCHOR_SEPARATION = 0.05
 

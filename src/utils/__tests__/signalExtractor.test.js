@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calculateGazeRatio, calculateIrisCentroid } from '../signalExtractor'
+import { calculateGazeRatio, calculateIrisCentroid, calculateBrowRatio } from '../signalExtractor'
 
 // Minimal synthetic face: only the landmark indices the gaze functions read.
 // Iris centers sit exactly mid-way between each eye's corners and lids → ratio 0.5/0.5.
@@ -42,5 +42,41 @@ describe('calculateGazeRatio', () => {
     for (const i of [468, 469, 470, 471, 472]) lm[i] = { x: 0.385, y: 0.50, z: 0 } // toward outer (0.40)
     const g = calculateGazeRatio(lm)
     expect(g.x).toBeGreaterThan(0.6)
+  })
+})
+
+// Minimal synthetic face for brow-ratio tests: only the indices
+// calculateBrowRatio reads — brows (70, 300) via calculateBrowDistance, and
+// cheeks (234, 454) for face width.
+function makeBrowFace({ leftBrowX = 0.40, rightBrowX = 0.60, leftCheekX = 0.20, rightCheekX = 0.80 } = {}) {
+  const lm = new Array(478).fill(null).map(() => ({ x: 0.5, y: 0.5, z: 0 }))
+  const set = (i, x, y) => { lm[i] = { x, y, z: 0 } }
+  set(70, leftBrowX, 0.40)
+  set(300, rightBrowX, 0.40)
+  set(234, leftCheekX, 0.50)
+  set(454, rightCheekX, 0.50)
+  return lm
+}
+
+describe('calculateBrowRatio', () => {
+  it('is invariant to uniform scaling of all landmark coordinates', () => {
+    const base = makeBrowFace()
+    const baseRatio = calculateBrowRatio(base)
+
+    const factor = 2.5
+    const scaled = base.map((p) => ({ x: p.x * factor, y: p.y * factor, z: p.z * factor }))
+    const scaledRatio = calculateBrowRatio(scaled)
+
+    expect(scaledRatio).toBeCloseTo(baseRatio, 6)
+  })
+
+  it('furrowing (brows move closer together) lowers the ratio', () => {
+    const relaxed = makeBrowFace({ leftBrowX: 0.40, rightBrowX: 0.60 })
+    const furrowed = makeBrowFace({ leftBrowX: 0.46, rightBrowX: 0.54 })
+
+    const relaxedRatio = calculateBrowRatio(relaxed)
+    const furrowedRatio = calculateBrowRatio(furrowed)
+
+    expect(furrowedRatio).toBeLessThan(relaxedRatio)
   })
 })

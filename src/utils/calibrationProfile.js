@@ -50,13 +50,42 @@ function mean(values) {
 }
 
 function phaseNormalized(phase, boundaries) {
-  return {
+  const normalized = {
     blinkRate: normalizeSignal(phase.blinkRatePerMin, boundaries.blinkRate, SIGNAL_DIRECTIONS.blinkRate),
     gazeStability: normalizeSignal(mean(phase.gazeSamples), boundaries.gazeStability, SIGNAL_DIRECTIONS.gazeStability),
   }
+  if (boundaries.browFurrow) {
+    normalized.browFurrow = normalizeSignal(mean(phase.browSamples), boundaries.browFurrow, SIGNAL_DIRECTIONS.browFurrow)
+  }
+  return normalized
+}
+
+// Minimum raw brow-ratio samples per phase before we trust boundaries built
+// from them — mirrors the blink-sample-count gate above, keeping a sparse
+// calibration from producing a noisy browFurrow signal.
+const MIN_BROW_SAMPLES = 8
+
+// Returns { browFurrow: {min,max} } from p5/p95 of the combined rest+task
+// brow-ratio samples, or {} when absent/too sparse — spread into `boundaries`
+// so callers with no brow data get an unchanged 2-signal profile.
+function browBoundary(browSamples) {
+  const ok =
+    browSamples &&
+    browSamples.rest?.length >= MIN_BROW_SAMPLES &&
+    browSamples.task?.length >= MIN_BROW_SAMPLES
+  if (!ok) return {}
+  const allBrow = [...browSamples.rest, ...browSamples.task]
+  return { browFurrow: { min: percentile(allBrow, 0.05), max: percentile(allBrow, 0.95) } }
+}
+
+function withBrowSamples(phase, samples, hasBrow) {
+  return hasBrow ? { ...phase, browSamples: samples } : phase
 }
 
 // rest/task: { gazeSamples: number[], blinkRatePerMin: number }
+// browSamples (optional): { rest: number[], task: number[] } — raw brow-ratio
+// samples per phase. Omitted (or too sparse) callers get a profile with no
+// browFurrow boundary/phaseMeans, so computeEngagementScore simply skips it.
 export function buildCalibrationProfile({
   rest,
   task,
@@ -65,6 +94,7 @@ export function buildCalibrationProfile({
   now = 0,
   restEarSamples,
   blinkRateSamples,
+  browSamples,
 }) {
   const allGaze = [...rest.gazeSamples, ...task.gazeSamples]
   // Prefer p5/p95 of the full rolling blink-rate distribution (mirrors how
@@ -84,11 +114,13 @@ export function buildCalibrationProfile({
       max: percentile(allGaze, 0.95),
     },
     blinkRate: blinkBoundary,
+    ...browBoundary(browSamples),
   }
+  const hasBrow = boundaries.browFurrow != null
 
   const phaseMeans = {
-    rest: phaseNormalized(rest, boundaries),
-    task: phaseNormalized(task, boundaries),
+    rest: phaseNormalized(withBrowSamples(rest, browSamples?.rest, hasBrow), boundaries),
+    task: phaseNormalized(withBrowSamples(task, browSamples?.task, hasBrow), boundaries),
   }
 
   const floorW = weightedIndex(phaseMeans.rest, weights)

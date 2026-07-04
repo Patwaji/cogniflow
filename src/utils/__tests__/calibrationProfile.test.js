@@ -96,6 +96,35 @@ describe('buildCalibrationProfile', () => {
   })
 })
 
+describe('buildCalibrationProfile with browSamples', () => {
+  it('omits browFurrow boundaries/phaseMeans when browSamples are absent', () => {
+    const p = buildCalibrationProfile(makeInput())
+    expect(p.boundaries.browFurrow).toBeUndefined()
+    expect(p.phaseMeans.rest.browFurrow).toBeUndefined()
+    expect(p.phaseMeans.task.browFurrow).toBeUndefined()
+  })
+
+  it('omits browFurrow when samples are too sparse', () => {
+    const p = buildCalibrationProfile(makeInput({
+      browSamples: { rest: [0.3, 0.31], task: [0.25, 0.24] },
+    }))
+    expect(p.boundaries.browFurrow).toBeUndefined()
+  })
+
+  it('adds browFurrow boundaries/phaseMeans when task is more furrowed than rest', () => {
+    // Brow ratio shrinks with furrowing; task (more load) is lower than rest.
+    const restBrow = Array.from({ length: 20 }, (_, i) => 0.30 + (i % 5) * 0.002)
+    const taskBrow = Array.from({ length: 20 }, (_, i) => 0.22 + (i % 5) * 0.002)
+    const p = buildCalibrationProfile(makeInput({
+      browSamples: { rest: restBrow, task: taskBrow },
+    }))
+
+    expect(p.boundaries.browFurrow).toBeDefined()
+    expect(p.boundaries.browFurrow.max).toBeGreaterThan(p.boundaries.browFurrow.min)
+    expect(p.phaseMeans.task.browFurrow).toBeGreaterThan(p.phaseMeans.rest.browFurrow)
+  })
+})
+
 describe('deriveEarThreshold', () => {
   it('sets the cutoff below the open-eye baseline (fraction of the high percentile)', () => {
     // Mostly open-eye EAR ~0.30 with a few blink dips

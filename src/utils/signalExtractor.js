@@ -66,6 +66,16 @@ function calculateBrowDistance(landmarks) {
   return dist(leftBrow, rightBrow)
 }
 
+// Inter-brow distance normalized by face width, so it is invariant to how
+// close the user sits to the camera (raw brow distance scales with face size
+// in the image — the same confound that keeps pupil display-only). Furrowing
+// draws the brows together -> smaller ratio. LEFT_CHEEK=234, RIGHT_CHEEK=454
+// and calculateBrowDistance already exist in this file.
+function calculateBrowRatio(landmarks) {
+  const faceWidth = dist(landmarks[LEFT_CHEEK], landmarks[RIGHT_CHEEK])
+  return calculateBrowDistance(landmarks) / (faceWidth + 1e-6)
+}
+
 function calculateIrisCentroid(landmarks) {
   const leftPts = LEFT_IRIS_IDS.map(i => landmarks[i])
   const rightPts = RIGHT_IRIS_IDS.map(i => landmarks[i])
@@ -146,6 +156,7 @@ export {
   calculateEAR,
   calculateIrisRadius,
   calculateBrowDistance,
+  calculateBrowRatio,
   calculateIrisCentroid,
   calculateGazeRatio,
   getNoseTip,
