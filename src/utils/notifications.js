@@ -17,11 +17,3 @@ export async function notify(title, body) {
     console.error('Notification failed:', err)
   }
 }
-
-export async function updateTrayScore(score) {
-  try {
-    await invoke('update_tray_score', { score })
-  } catch {
-    /* tray may not be available */
-  }
-}

@@ -1,20 +1,20 @@
 import { useEffect } from 'react'
 import useSignalsStore from '../store/signals'
-import { notify, updateTrayScore, canFire } from '../utils/notifications'
+import { notify, canFire } from '../utils/notifications'
+import { buildSessionStory } from '../lib/sessionStory'
 
+// Fires the session-end OS notification only. All in-session focus nudges
+// are owned by useNudgeWatcher. No score is ever surfaced here — the
+// notification reports story terms (longest focused stretch), not the
+// retired 0-100 cognitive score.
 export default function useNotificationWatcher() {
   useEffect(() => {
     return useSignalsStore.subscribe(
       (s) => ({
-        score: s.cognitiveScore,
         session: s.sessionState,
         dataPoints: s.sessionDataPoints.length,
       }),
-      ({ score, session, dataPoints }, prev) => {
-        if (score !== prev.score) {
-          updateTrayScore(score)
-        }
-
+      ({ session, dataPoints }, prev) => {
         if (
           (prev.session === 'running' || prev.session === 'paused') &&
           session === 'idle' &&
@@ -22,7 +22,10 @@ export default function useNotificationWatcher() {
           canFire('sessionEnd')
         ) {
           const state = useSignalsStore.getState()
-          notify('Session complete', `Avg score: ${state.cognitiveScore}.`)
+          if (!state.sessionDataPoints.length || !state.sessionStartTime) return
+          const story = buildSessionStory(state.sessionDataPoints, state.sessionStartTime)
+          const minutes = Math.round(story.longestFocusedStretchSec / 60)
+          notify('Session complete', `Longest focus: ${minutes}m`)
         }
       },
     )
