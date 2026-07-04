@@ -88,13 +88,12 @@ export default function SettingsScreen({ onBack }) {
           {Object.entries(notifications).map(([key, value]) => (
             <div className="settings-toggle-row" key={key}>
               <span className="settings-toggle-label">
-                {key === 'flow'
-                  ? 'Flow alerts'
-                  : key === 'distracted'
-                    ? 'Distraction alerts'
-                    : key === 'drowsy'
-                      ? 'Drowsiness alerts'
-                      : 'Session end alerts'}
+                {{
+                  drift: 'Drift nudges',
+                  drowsy: 'Drowsy nudges',
+                  away: 'Away nudges',
+                  sessionEnd: 'Session summary',
+                }[key] ?? key}
               </span>
               <button
                 className={`settings-toggle ${value ? 'settings-toggle-on' : ''}`}

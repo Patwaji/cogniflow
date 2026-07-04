@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import useSignalsStore from '../store/signals'
+import useSettingsStore from '../store/settings'
 import { notify, canFire } from '../utils/notifications'
 import { buildSessionStory } from '../lib/sessionStory'
 
@@ -19,7 +20,8 @@ export default function useNotificationWatcher() {
           (prev.session === 'running' || prev.session === 'paused') &&
           session === 'idle' &&
           dataPoints > 0 &&
-          canFire('sessionEnd')
+          canFire('sessionEnd') &&
+          useSettingsStore.getState().notifications.sessionEnd
         ) {
           const state = useSignalsStore.getState()
           if (!state.sessionDataPoints.length || !state.sessionStartTime) return

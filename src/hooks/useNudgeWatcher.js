@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import useSignalsStore from '../store/signals'
+import useSettingsStore from '../store/settings'
 import { createNudgeState, stepNudge } from '../utils/nudgeEngine'
 import { notify } from '../utils/notifications'
 
@@ -18,7 +19,11 @@ export default function useNudgeWatcher() {
           { focusState, sessionRunning: sessionState === 'running', sessionElapsedMs: (elapsed || 0) * 1000 },
           now,
         )
-        if (nudge) notify(nudge.title, nudge.body)
+        if (nudge) {
+          const { notifications } = useSettingsStore.getState()
+          const allowed = nudge.type === 'backstop' || notifications[nudge.type] !== false
+          if (allowed) notify(nudge.title, nudge.body)
+        }
       },
     )
   }, [])

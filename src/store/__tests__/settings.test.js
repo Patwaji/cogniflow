@@ -9,7 +9,7 @@ async function freshStore() {
   return mod.default
 }
 
-describe('settings v3', () => {
+describe('settings v4', () => {
   beforeEach(() => {
     localStorage.clear()
   })
@@ -19,18 +19,28 @@ describe('settings v3', () => {
     expect(store.getState().weights).toEqual({ blinkRate: 40, gazeStability: 35, browFurrow: 25 })
   })
 
+  it('defaults notifications to drift/drowsy/away/sessionEnd all on', async () => {
+    const store = await freshStore()
+    expect(store.getState().notifications).toEqual({
+      drift: true, drowsy: true, away: true, sessionEnd: true,
+    })
+  })
+
   it('discards persisted settings from previous schema versions', async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      _v: 2,
+      _v: 3,
       weights: { blinkRate: 50, gazeStability: 50 },
     }))
     const store = await freshStore()
     expect(store.getState().weights).toEqual({ blinkRate: 40, gazeStability: 35, browFurrow: 25 })
+    expect(store.getState().notifications).toEqual({
+      drift: true, drowsy: true, away: true, sessionEnd: true,
+    })
   })
 
-  it('keeps v3-persisted settings', async () => {
+  it('keeps v4-persisted settings', async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      _v: 3,
+      _v: 4,
       weights: { blinkRate: 70, gazeStability: 20, browFurrow: 10 },
     }))
     const store = await freshStore()
@@ -41,7 +51,7 @@ describe('settings v3', () => {
     const store = await freshStore()
     store.getState().updateThreshold('flow', 85)
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY))
-    expect(raw._v).toBe(3)
+    expect(raw._v).toBe(4)
   })
 
   it('updateWeight keeps the three weights summing to 100', async () => {

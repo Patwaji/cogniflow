@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 const STORAGE_KEY = 'cogniflow_settings'
 
-const SETTINGS_VERSION = 3
+const SETTINGS_VERSION = 4
 
 const DEFAULTS = {
   _v: SETTINGS_VERSION,
@@ -17,10 +17,10 @@ const DEFAULTS = {
     flow: 80,
   },
   notifications: {
-    flow: true,
-    distracted: true,
-    sessionEnd: true,
+    drift: true,
     drowsy: true,
+    away: true,
+    sessionEnd: true,
   },
   calibrationDuration: 30,
   performanceMode: false,
