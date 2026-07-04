@@ -57,17 +57,33 @@ function phaseNormalized(phase, boundaries) {
 }
 
 // rest/task: { gazeSamples: number[], blinkRatePerMin: number }
-export function buildCalibrationProfile({ rest, task, weights, faceDetectionRate = 1, now = 0, restEarSamples }) {
+export function buildCalibrationProfile({
+  rest,
+  task,
+  weights,
+  faceDetectionRate = 1,
+  now = 0,
+  restEarSamples,
+  blinkRateSamples,
+}) {
   const allGaze = [...rest.gazeSamples, ...task.gazeSamples]
+  // Prefer p5/p95 of the full rolling blink-rate distribution (mirrors how
+  // gaze boundaries are built) once enough samples exist; a couple of
+  // aggregate anchors are too easily skewed by one outlier window. With too
+  // few samples, fall back to the original 2-anchor ± pad estimate.
+  const blinkBoundary =
+    blinkRateSamples && blinkRateSamples.length >= 8
+      ? { min: percentile(blinkRateSamples, 0.05), max: percentile(blinkRateSamples, 0.95) }
+      : {
+          min: Math.min(rest.blinkRatePerMin, task.blinkRatePerMin) - BLINK_BOUND_PAD,
+          max: Math.max(rest.blinkRatePerMin, task.blinkRatePerMin) + BLINK_BOUND_PAD,
+        }
   const boundaries = {
     gazeStability: {
       min: percentile(allGaze, 0.05),
       max: percentile(allGaze, 0.95),
     },
-    blinkRate: {
-      min: Math.min(rest.blinkRatePerMin, task.blinkRatePerMin) - BLINK_BOUND_PAD,
-      max: Math.max(rest.blinkRatePerMin, task.blinkRatePerMin) + BLINK_BOUND_PAD,
-    },
+    blinkRate: blinkBoundary,
   }
 
   const phaseMeans = {

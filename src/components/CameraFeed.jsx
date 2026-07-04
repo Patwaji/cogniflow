@@ -49,6 +49,7 @@ function makeCalibState() {
     phaseStart: null,
     rest: { gazeSamples: [], earSamples: [], blinks: 0, irisRadiusSum: 0, browDistSum: 0, frames: 0 },
     task: { gazeSamples: [], blinks: 0 },
+    blinkRateSamples: [], // rolling blinks/min sampled across both phases, for percentile boundaries
     framesTotal: 0,
     framesWithFace: 0,
   }
@@ -338,7 +339,7 @@ export default function CameraFeed() {
     if (!calibrationDone.current) {
       const armed = useSettingsStore.getState().onboardingDone || useSignalsStore.getState().calibrationArmed
       if (!armed) return
-      runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browDist, ear })
+      runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browDist, ear, blinkRatePerMin })
       return
     }
 
@@ -370,7 +371,7 @@ export default function CameraFeed() {
     })
   }
 
-  function runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browDist, ear }) {
+  function runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browDist, ear, blinkRatePerMin }) {
     if (!calib.current) {
       calib.current = makeCalibState()
       setCalibration(true)
@@ -392,6 +393,7 @@ export default function CameraFeed() {
       const bucket = c[c.phase]
       bucket.gazeSamples.push(gazeJitter)
       if (blinked) bucket.blinks++
+      c.blinkRateSamples.push(blinkRatePerMin)
       if (c.phase === 'rest') {
         bucket.irisRadiusSum += avgIrisRadius
         bucket.browDistSum += browDist
@@ -432,6 +434,7 @@ export default function CameraFeed() {
       faceDetectionRate: c.framesTotal ? c.framesWithFace / c.framesTotal : 0,
       now,
       restEarSamples: c.rest.earSamples,
+      blinkRateSamples: c.blinkRateSamples,
     })
 
     calibrationDone.current = true

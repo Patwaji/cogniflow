@@ -14,6 +14,7 @@ function makeInput(overrides = {}) {
     weights: WEIGHTS,
     faceDetectionRate: 1,
     now: 1234,
+    blinkRateSamples: undefined,
     ...overrides,
   }
 }
@@ -35,6 +36,20 @@ describe('buildCalibrationProfile', () => {
     const p = buildCalibrationProfile(makeInput())
     expect(p.boundaries.blinkRate.min).toBe(8)  // min(18,9) - 1
     expect(p.boundaries.blinkRate.max).toBe(19) // max(18,9) + 1
+  })
+
+  it('builds blink boundaries from the sample distribution (p5/p95), excluding outliers', () => {
+    // 21 samples so floor-based percentile p5→idx floor(0.05*20)=1 (2nd smallest)
+    // and p95→idx floor(0.95*20)=19 (2nd largest), trimming exactly the two
+    // extreme outliers (2 and 60). Production collects hundreds of samples, where
+    // p5/p95 trim even more robustly; this is the minimal array that exercises it.
+    const blinkRateSamples = [
+      2, 8, 8, 9, 9, 10, 17, 18, 18, 19, 20,
+      8, 9, 9, 10, 8, 18, 19, 17, 20, 60,
+    ]
+    const p = buildCalibrationProfile(makeInput({ blinkRateSamples }))
+    expect(p.boundaries.blinkRate.min).toBe(8)    // 2nd smallest — excludes the low outlier (2)
+    expect(p.boundaries.blinkRate.max).toBe(20)   // 2nd largest — excludes the high outlier (60)
   })
 
   it('builds gaze boundaries from p5/p95 of combined samples', () => {
