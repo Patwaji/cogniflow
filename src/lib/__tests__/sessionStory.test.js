@@ -55,8 +55,26 @@ describe('buildTakeaway', () => {
   })
 
   it('celebrates a long unbroken stretch when there are no lapses', () => {
-    const long = Array(30).fill('focused') // 150s focused
+    const long = Array(70).fill('focused') // 350s focused, clears the 300s bar
     const t = buildTakeaway(buildSessionStory(pts(long), START))
     expect(t).toMatch(/longest|stretch|strong/i)
+  })
+
+  it('acknowledges away-gaps instead of celebrating when the session was interrupted', () => {
+    // Long focused run broken by an away gap, but no drift/drowsy at all.
+    const states = [...Array(70).fill('focused'), 'away', ...Array(10).fill('focused')]
+    const s = buildSessionStory(pts(states), START)
+    expect(s.awayCount).toBe(1)
+    expect(s.awaySec).toBeGreaterThan(0)
+    const t = buildTakeaway(s)
+    expect(t).toMatch(/away|stepped/i)
+    expect(t).not.toMatch(/strong/i)
+  })
+
+  it('reads sub-minute first-drift time as "less than a minute", not "1 minute"', () => {
+    const s = buildSessionStory(pts(['drifting', 'drifting', 'focused', 'drifting']), START)
+    const t = buildTakeaway(s)
+    expect(t).toMatch(/drift|break/i)
+    expect(t).toMatch(/less than a minute/i)
   })
 })

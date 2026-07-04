@@ -58,6 +58,7 @@ export function buildSessionStory(dataPoints, startTime) {
 }
 
 function fmtMin(sec) {
+  if (sec < 30) return 'less than a minute'
   const m = Math.round(sec / 60)
   return m <= 1 ? '1 minute' : `${m} minutes`
 }
@@ -72,7 +73,10 @@ export function buildTakeaway(story) {
   if (story.driftCount >= 2 && story.firstDriftElapsed != null) {
     return `Your focus first dipped around ${fmtMin(story.firstDriftElapsed)} in. Try a short break near there next time to get ahead of it.`
   }
-  if (story.driftCount === 0 && story.longestFocusedStretchSec >= 120) {
+  if (story.driftCount === 0 && story.drowsyCount === 0 && story.awayCount >= 1) {
+    return `You stepped away ${story.awayCount === 1 ? 'once' : `${story.awayCount} times`} but stayed focused while you were here. Longer unbroken stretches will build your stamina.`
+  }
+  if (story.driftCount === 0 && story.awayCount === 0 && story.longestFocusedStretchSec >= 300) {
     return `Strong session — your longest unbroken focus was ${fmtMin(story.longestFocusedStretchSec)}. See if you can match it next time.`
   }
   if (story.driftCount >= 1) {
