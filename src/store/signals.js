@@ -54,6 +54,8 @@ const useSignalsStore = create(subscribeWithSelector((set, get) => ({
   sessionEndTime: null,
   sessionIntention: '',
 
+  cameraOff: false,
+
   updateSignals: ({ raw, display, confidenceInputs, onScreen = true }) => {
     const state = get()
     let profile = state.calibrationProfile
@@ -288,6 +290,8 @@ const useSignalsStore = create(subscribeWithSelector((set, get) => ({
   }),
 
   setSessionIntention: (text) => set({ sessionIntention: text }),
+
+  toggleCameraOff: () => set((s) => ({ cameraOff: !s.cameraOff })),
 
   discardSession: () => set({
     sessionDataPoints: [],

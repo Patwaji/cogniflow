@@ -13,6 +13,8 @@ export default function SessionControls({ onHistory, onSettings, onTrends }) {
   const stopSession = useSignalsStore((s) => s.stopSession)
   const tickSession = useSignalsStore((s) => s.tickSession)
   const recordDataPoint = useSignalsStore((s) => s.recordDataPoint)
+  const cameraOff = useSignalsStore((s) => s.cameraOff)
+  const toggleCameraOff = useSignalsStore((s) => s.toggleCameraOff)
 
   useEffect(() => {
     if (sessionState !== 'running') return
@@ -56,6 +58,9 @@ export default function SessionControls({ onHistory, onSettings, onTrends }) {
             <button className="session-btn session-btn-ghost" onClick={onSettings}>
               Settings
             </button>
+            <button className="session-btn session-btn-ghost" onClick={toggleCameraOff}>
+              {cameraOff ? 'Turn camera on' : 'Turn camera off'}
+            </button>
           </>
         )}
         {sessionState === 'running' && (
@@ -66,6 +71,9 @@ export default function SessionControls({ onHistory, onSettings, onTrends }) {
             <button className="session-btn session-btn-danger" onClick={stopSession}>
               Stop
             </button>
+            <button className="session-btn session-btn-ghost" onClick={toggleCameraOff}>
+              {cameraOff ? 'Turn camera on' : 'Turn camera off'}
+            </button>
           </>
         )}
         {sessionState === 'paused' && (
@@ -75,6 +83,9 @@ export default function SessionControls({ onHistory, onSettings, onTrends }) {
             </button>
             <button className="session-btn session-btn-danger" onClick={stopSession}>
               Stop
+            </button>
+            <button className="session-btn session-btn-ghost" onClick={toggleCameraOff}>
+              {cameraOff ? 'Turn camera on' : 'Turn camera off'}
             </button>
           </>
         )}

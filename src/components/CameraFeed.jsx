@@ -73,10 +73,12 @@ export default function CameraFeed() {
   const tickFocusAbsent = useSignalsStore((s) => s.tickFocusAbsent)
   const setDrowsy = useSignalsStore((s) => s.setDrowsy)
   const recalibrateTick = useSignalsStore((s) => s._recalibrateTick)
+  const cameraOff = useSignalsStore((s) => s.cameraOff)
 
   const animFrameRef = useRef(null)
   const streamRef = useRef(null)
   const faceLandmarkerRef = useRef(null)
+  const cameraOffRef = useRef(cameraOff)
 
   const blinkTimestamps = useRef([])
   const gazeHistory = useRef([])
@@ -103,26 +105,56 @@ export default function CameraFeed() {
   const lumaCanvas = useRef(null)
 
   useEffect(() => {
+    cameraOffRef.current = cameraOff
+  }, [cameraOff])
+
+  // Single source of truth for stream acquisition. Runs on mount (cameraOff
+  // starts false) and again whenever cameraOff toggles. When switching to
+  // off, the cleanup below stops the previous run's tracks and clears the
+  // video element; the "off" branch then does no new acquisition, so there
+  // is never more than one live stream and never a double-acquire on mount.
+  useEffect(() => {
+    if (cameraOff) {
+      setFaceDetected(false)
+      return undefined
+    }
+
+    // Captured once per effect run (not re-read in cleanup) so the
+    // react-hooks/exhaustive-deps ref-in-cleanup check is satisfied — the
+    // node itself doesn't change across the lifetime of a single run.
+    const videoEl = videoRef.current
+    let cancelled = false
+
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 640, height: 480, facingMode: 'user' },
         })
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
+        }
         streamRef.current = stream
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
+        if (videoEl) {
+          videoEl.srcObject = stream
         }
       } catch {
-        setPermissionDenied(true)
+        if (!cancelled) setPermissionDenied(true)
       }
     }
     startCamera()
+
     return () => {
+      cancelled = true
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
+      }
+      if (videoEl) {
+        videoEl.srcObject = null
       }
     }
-  }, [])
+  }, [cameraOff, setFaceDetected])
 
   useEffect(() => {
     async function initMediaPipe() {
@@ -181,7 +213,7 @@ export default function CameraFeed() {
       const canvas = canvasRef.current
       const faceLandmarker = faceLandmarkerRef.current
 
-      if (!video || !canvas || !faceLandmarker || video.readyState < 2) {
+      if (cameraOffRef.current || !video || !canvas || !faceLandmarker || video.readyState < 2) {
         animFrameRef.current = requestAnimationFrame(detectLoop)
         return
       }
