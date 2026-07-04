@@ -17,9 +17,11 @@ function fmtTime(s) {
   return `${m}:${String(ss).padStart(2, '0')}`
 }
 
-// data: [{ elapsed (sec), cognitiveScore, confidence? }]
+// data: [{ elapsed (sec), cognitiveScore, rawScore?, confidence? }]
 // thresholds: { distracted, focused, flow }
 // highlight: { startElapsed, endElapsed } | null  (retrospective segment)
+// scoreKey: which field on `data` to plot as the line (default 'cognitiveScore')
+// showConfidenceLane: render a thin confidence strip below the main chart
 export default function ScoreChart({
   data,
   thresholds,
@@ -27,6 +29,8 @@ export default function ScoreChart({
   height = 260,
   gradientId = 'score-grad',
   showBaselineLabels = true,
+  scoreKey = 'cognitiveScore',
+  showConfidenceLane = false,
 }) {
   const t = thresholds || { distracted: 20, focused: 55, flow: 80 }
   const n = data.length
@@ -41,6 +45,8 @@ export default function ScoreChart({
         opacity: 0.3 + 0.7 * Math.max(0, Math.min(1, d.confidence ?? 0)),
       }))
     : null
+
+  const showLane = showConfidenceLane && hasConfidence
 
   return (
     <div className="score-chart">
@@ -82,8 +88,8 @@ export default function ScoreChart({
             }}
             labelFormatter={(v) => fmtTime(v)}
             formatter={(value, name) => [
-              name === 'cognitiveScore' ? value : `${Math.round(value * 100)}%`,
-              name === 'cognitiveScore' ? 'Load' : 'Confidence',
+              name === scoreKey ? Math.round(value) : `${Math.round(value * 100)}%`,
+              name === scoreKey ? 'Load' : 'Confidence',
             ]}
           />
 
@@ -105,7 +111,7 @@ export default function ScoreChart({
 
           <Line
             type="monotone"
-            dataKey="cognitiveScore"
+            dataKey={scoreKey}
             stroke={stops ? `url(#${gradientId})` : LINE_COLOR}
             strokeWidth={2}
             dot={false}
@@ -114,6 +120,27 @@ export default function ScoreChart({
           />
         </LineChart>
       </ResponsiveContainer>
+
+      {showLane && (
+        <div className="score-chart-lane">
+          {/* A simple flex row (rather than a second recharts BarChart) keeps
+              this strip trivially aligned 1:1 with `data`, one cell per point,
+              sharing the same left-to-right ordering as the line above. */}
+          <div className="score-chart-lane-strip">
+            {data.map((d, i) => (
+              <div
+                key={i}
+                className="score-chart-lane-cell"
+                style={{
+                  width: `${100 / n}%`,
+                  opacity: Math.max(0, Math.min(1, d.confidence ?? 0)),
+                }}
+              />
+            ))}
+          </div>
+          <span className="score-chart-lane-label">confidence</span>
+        </div>
+      )}
 
       {showBaselineLabels && (
         <div className="score-chart-scale">

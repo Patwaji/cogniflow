@@ -69,6 +69,22 @@
   border-radius: var(--radius-lg);
 }
 
+.review-chart-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--spacing-sm);
+}
+
+.review-chart-toggle {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.review-chip-sm {
+  padding: 4px 12px;
+  font-size: var(--font-size-xs);
+}
+
 .review-validation {
   display: flex;
   flex-direction: column;

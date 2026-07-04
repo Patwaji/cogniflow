@@ -42,6 +42,33 @@ export default function TrendsScreen({ onBack }) {
     return out
   }, [sessions])
 
+  // Bucket sessions by hour-of-day (local time) to surface when focus tends
+  // to run higher/lower across the day — the one longitudinal view the
+  // dataviz research recommends that wasn't built yet.
+  const hourlyAvg = useMemo(() => {
+    const acc = {}
+    for (const s of sessions) {
+      const hour = new Date(s.createdAt).getHours()
+      if (!acc[hour]) acc[hour] = { sum: 0, n: 0 }
+      acc[hour].sum += s.avgScore
+      acc[hour].n += 1
+    }
+    const out = {}
+    for (const [hour, v] of Object.entries(acc)) {
+      out[hour] = { avg: Math.round(v.sum / v.n), count: v.n }
+    }
+    return out
+  }, [sessions])
+
+  const hourlyCells = useMemo(
+    () =>
+      Array.from({ length: 24 }, (_, hour) => ({
+        hour,
+        bucket: hourlyAvg[hour] || null,
+      })),
+    [hourlyAvg],
+  )
+
   const heatmapCells = useMemo(() => {
     const cells = []
     const today = new Date()
@@ -149,6 +176,36 @@ export default function TrendsScreen({ onBack }) {
               <span>Higher</span>
             </div>
           </section>
+
+          {sessions.length > 1 && (
+            <section className="trends-card">
+              <h3 className="trends-card-title">Focus by time of day</h3>
+              <p className="trends-card-hint">
+                Each cell is an hour, shaded by your average load in sessions started then.
+              </p>
+              <div className="trends-hour-strip">
+                {hourlyCells.map((cell) => (
+                  <div
+                    key={cell.hour}
+                    className="trends-hour-cell"
+                    style={{ background: scoreColor(cell.bucket?.avg ?? null) }}
+                    title={
+                      cell.bucket
+                        ? `${cell.hour}:00: avg ${cell.bucket.avg}, ${cell.bucket.count} session${cell.bucket.count > 1 ? 's' : ''}`
+                        : `${cell.hour}:00: no sessions`
+                    }
+                  />
+                ))}
+              </div>
+              <div className="trends-hour-labels">
+                <span>0</span>
+                <span>6</span>
+                <span>12</span>
+                <span>18</span>
+                <span>23</span>
+              </div>
+            </section>
+          )}
 
           {sessionTrend.length > 1 && (
             <section className="trends-card">

@@ -123,6 +123,27 @@
   border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
+.trends-hour-strip {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 3px;
+}
+
+.trends-hour-cell {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.trends-hour-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .trends-heatmap-legend {
   display: flex;
   align-items: center;

@@ -29,12 +29,15 @@ export default function SessionReview({ onDone }) {
   const [answer, setAnswer] = useState(null) // 'yes' | 'no' | null
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(false)
+  const [showRaw, setShowRaw] = useState(false)
 
   const chartData = useMemo(
     () =>
       dataPoints.map((p) => ({
         elapsed: Math.max(0, Math.round((p.timestamp - startTime) / 1000)),
         cognitiveScore: p.cognitiveScore,
+        // Fallback to cognitiveScore for older sessions saved before rawScore existed.
+        rawScore: p.rawScore ?? p.cognitiveScore,
         confidence: p.confidence ?? 0,
       })),
     [dataPoints, startTime],
@@ -122,12 +125,30 @@ export default function SessionReview({ onDone }) {
       </div>
 
       <div className="review-chart">
+        <div className="review-chart-toolbar">
+          <div className="review-chart-toggle">
+            <button
+              className={`review-chip review-chip-sm${!showRaw ? ' active' : ''}`}
+              onClick={() => setShowRaw(false)}
+            >
+              Smoothed
+            </button>
+            <button
+              className={`review-chip review-chip-sm${showRaw ? ' active' : ''}`}
+              onClick={() => setShowRaw(true)}
+            >
+              Raw
+            </button>
+          </div>
+        </div>
         <ScoreChart
           data={chartData}
           thresholds={thresholds}
           highlight={segment}
           height={280}
           gradientId="review-grad"
+          scoreKey={showRaw ? 'rawScore' : 'cognitiveScore'}
+          showConfidenceLane
         />
       </div>
 

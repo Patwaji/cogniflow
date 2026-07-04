@@ -16,3 +16,31 @@
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
 }
+
+.score-chart-lane {
+  margin-top: 2px;
+}
+
+.score-chart-lane-strip {
+  display: flex;
+  align-items: stretch;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-bg-surface);
+}
+
+.score-chart-lane-cell {
+  height: 100%;
+  background: var(--color-text-secondary);
+}
+
+.score-chart-lane-label {
+  display: block;
+  margin-top: 2px;
+  padding: 0 4px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
