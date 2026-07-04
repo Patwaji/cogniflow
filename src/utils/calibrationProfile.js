@@ -10,6 +10,27 @@ import {
 // to an anchor doesn't sit exactly on a boundary.
 export const BLINK_BOUND_PAD = 1
 
+// A blink boundary narrower than this (blinks/min) means the short calibration
+// caught too little blink variation — its min/max collapse and normalizeSignal
+// would pin the live signal at a hardcoded neutral 0.5 forever. Fall back to a
+// population blink-rate range (blinks/min is a well-understood scale) so the
+// live signal tracks the user's actual blinking instead of freezing.
+export const BLINK_MIN_SEPARATION = 3
+export const BLINK_FALLBACK = { min: 5, max: 25 }
+
+// Continuous signals (gaze jitter, brow ratio) have no population scale, so a
+// collapsed boundary can't be substituted — drop it instead, letting the
+// signal be skipped in scoring rather than frozen at 0.5.
+const CONTINUOUS_MIN_SEPARATION = 1e-6
+
+function usableBlinkBoundary(b) {
+  return b.max - b.min >= BLINK_MIN_SEPARATION ? b : { ...BLINK_FALLBACK }
+}
+
+function usableContinuousBoundary(b) {
+  return b && b.max - b.min > CONTINUOUS_MIN_SEPARATION ? b : null
+}
+
 // Sample counts expected per phase for full coverage credit
 // (~12s of usable phase at ~15-30fps → 120 is a conservative target).
 const COVERAGE_TARGET = 120
@@ -50,9 +71,12 @@ function mean(values) {
 }
 
 function phaseNormalized(phase, boundaries) {
-  const normalized = {
-    blinkRate: normalizeSignal(phase.blinkRatePerMin, boundaries.blinkRate, SIGNAL_DIRECTIONS.blinkRate),
-    gazeStability: normalizeSignal(mean(phase.gazeSamples), boundaries.gazeStability, SIGNAL_DIRECTIONS.gazeStability),
+  const normalized = {}
+  if (boundaries.blinkRate) {
+    normalized.blinkRate = normalizeSignal(phase.blinkRatePerMin, boundaries.blinkRate, SIGNAL_DIRECTIONS.blinkRate)
+  }
+  if (boundaries.gazeStability) {
+    normalized.gazeStability = normalizeSignal(mean(phase.gazeSamples), boundaries.gazeStability, SIGNAL_DIRECTIONS.gazeStability)
   }
   if (boundaries.browFurrow) {
     normalized.browFurrow = normalizeSignal(mean(phase.browSamples), boundaries.browFurrow, SIGNAL_DIRECTIONS.browFurrow)
@@ -75,7 +99,8 @@ function browBoundary(browSamples) {
     browSamples.task?.length >= MIN_BROW_SAMPLES
   if (!ok) return {}
   const allBrow = [...browSamples.rest, ...browSamples.task]
-  return { browFurrow: { min: percentile(allBrow, 0.05), max: percentile(allBrow, 0.95) } }
+  const b = usableContinuousBoundary({ min: percentile(allBrow, 0.05), max: percentile(allBrow, 0.95) })
+  return b ? { browFurrow: b } : {}
 }
 
 function withBrowSamples(phase, samples, hasBrow) {
@@ -101,19 +126,20 @@ export function buildCalibrationProfile({
   // gaze boundaries are built) once enough samples exist; a couple of
   // aggregate anchors are too easily skewed by one outlier window. With too
   // few samples, fall back to the original 2-anchor ± pad estimate.
-  const blinkBoundary =
+  const blinkRaw =
     blinkRateSamples && blinkRateSamples.length >= 8
       ? { min: percentile(blinkRateSamples, 0.05), max: percentile(blinkRateSamples, 0.95) }
       : {
           min: Math.min(rest.blinkRatePerMin, task.blinkRatePerMin) - BLINK_BOUND_PAD,
           max: Math.max(rest.blinkRatePerMin, task.blinkRatePerMin) + BLINK_BOUND_PAD,
         }
+  const gazeBoundary = usableContinuousBoundary({
+    min: percentile(allGaze, 0.05),
+    max: percentile(allGaze, 0.95),
+  })
   const boundaries = {
-    gazeStability: {
-      min: percentile(allGaze, 0.05),
-      max: percentile(allGaze, 0.95),
-    },
-    blinkRate: blinkBoundary,
+    ...(gazeBoundary ? { gazeStability: gazeBoundary } : {}),
+    blinkRate: usableBlinkBoundary(blinkRaw),
     ...browBoundary(browSamples),
   }
   const hasBrow = boundaries.browFurrow != null
@@ -131,8 +157,13 @@ export function buildCalibrationProfile({
   const coverage = clamp01(
     Math.min(rest.gazeSamples.length, task.gazeSamples.length) / COVERAGE_TARGET,
   )
+  // A degenerate profile (rest and task produced near-identical weighted
+  // indices — the signals never separated) is an untrustworthy calibration, so
+  // tank its quality. This surfaces as low confidence, nudging a recalibration
+  // instead of presenting a frozen score at high confidence.
+  const degeneratePenalty = params.degenerate ? 0.35 : 1
   const quality =
-    0.4 * separation + 0.3 * coverage + 0.3 * clamp01(faceDetectionRate)
+    degeneratePenalty * (0.4 * separation + 0.3 * coverage + 0.3 * clamp01(faceDetectionRate))
 
   return {
     boundaries,

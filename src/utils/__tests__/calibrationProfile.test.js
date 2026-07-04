@@ -52,6 +52,45 @@ describe('buildCalibrationProfile', () => {
     expect(p.boundaries.blinkRate.max).toBe(20)   // 2nd largest — excludes the high outlier (60)
   })
 
+  it('falls back to a population blink range when calibration caught no blink variation', () => {
+    // Every window reported the same blink rate (e.g. no blinks detected) →
+    // p5 == p95 → a degenerate boundary that would pin the live signal at 0.5.
+    const blinkRateSamples = Array.from({ length: 20 }, () => 0)
+    const p = buildCalibrationProfile(makeInput({ blinkRateSamples }))
+    expect(p.boundaries.blinkRate).toEqual({ min: 5, max: 25 })
+  })
+
+  it('falls back to the population blink range when the two anchors are too close', () => {
+    const p = buildCalibrationProfile(
+      makeInput({ rest: { gazeSamples: makeInput().rest.gazeSamples, blinkRatePerMin: 12 },
+                  task: { gazeSamples: makeInput().task.gazeSamples, blinkRatePerMin: 12 } }),
+    )
+    // min(12,12)-1=11, max+1=13 → separation 2 < 3 → fallback
+    expect(p.boundaries.blinkRate).toEqual({ min: 5, max: 25 })
+  })
+
+  it('drops a gaze boundary when calibration caught no gaze variation', () => {
+    const flat = Array.from({ length: 200 }, () => 0.004)
+    const p = buildCalibrationProfile(makeInput({
+      rest: { gazeSamples: flat, blinkRatePerMin: 18 },
+      task: { gazeSamples: flat, blinkRatePerMin: 9 },
+    }))
+    expect(p.boundaries.gazeStability).toBeUndefined()
+    expect(p.phaseMeans.rest.gazeStability).toBeUndefined()
+  })
+
+  it('tanks quality for a degenerate (non-separating) calibration', () => {
+    const clean = buildCalibrationProfile(makeInput())
+    // rest and task identical on every signal → floorW ≈ ceilingW → degenerate
+    const flatGaze = Array.from({ length: 200 }, () => 0.004)
+    const degenerate = buildCalibrationProfile(makeInput({
+      rest: { gazeSamples: flatGaze, blinkRatePerMin: 12 },
+      task: { gazeSamples: flatGaze, blinkRatePerMin: 12 },
+    }))
+    expect(degenerate.degenerate).toBe(true)
+    expect(degenerate.quality).toBeLessThan(clean.quality)
+  })
+
   it('builds gaze boundaries from p5/p95 of combined samples', () => {
     const p = buildCalibrationProfile(makeInput())
     expect(p.boundaries.gazeStability.min).toBeGreaterThan(0.001)
