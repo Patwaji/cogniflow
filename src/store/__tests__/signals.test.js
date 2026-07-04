@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { buildCalibrationProfile } from '../../utils/calibrationProfile'
 
 const WEIGHTS = { blinkRate: 50, gazeStability: 50 }
+// Mirrors AWAY_HOLD_MS in ../signals.js (not exported; kept in sync here).
+const AWAY_HOLD_MS_TEST = 4000
 
 function makeProfile() {
   return buildCalibrationProfile({
@@ -183,6 +185,59 @@ describe('signals store v2', () => {
       onScreen: true,
     }, 1)
     expect(store.getState().cognitiveScore).toBeLessThan(25)
+  })
+
+  it('shows a neutral "away" state, not "distracted", after sustained onScreen:false', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(1_000_000)
+      // Rest-like signals would otherwise trend the score toward "distracted"
+      // (see the DISTRACTED_HOLD_MS=10000 path below); AWAY_HOLD_MS=4000 is
+      // shorter, so sustained !onScreen should preempt that with 'away'.
+      const restLikeAway = {
+        raw: { blinkRate: 18, gazeStability: 0.006 },
+        display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+        confidenceInputs: FULL_CONFIDENCE,
+        onScreen: false,
+      }
+      pump(store, restLikeAway, 1)
+      expect(store.getState().focusState).not.toBe('away')
+
+      vi.advanceTimersByTime(AWAY_HOLD_MS_TEST + 1)
+      pump(store, restLikeAway, 1)
+
+      expect(store.getState().focusState).toBe('away')
+      expect(store.getState().focusState).not.toBe('distracted')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('lets the score re-classify away from "away" once onScreen returns true', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(2_000_000)
+      const awayFrame = {
+        raw: { blinkRate: 18, gazeStability: 0.006 },
+        display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+        confidenceInputs: FULL_CONFIDENCE,
+        onScreen: false,
+      }
+      pump(store, awayFrame, 1)
+      vi.advanceTimersByTime(AWAY_HOLD_MS_TEST + 1)
+      pump(store, awayFrame, 1)
+      expect(store.getState().focusState).toBe('away')
+
+      pump(store, {
+        raw: { blinkRate: 9, gazeStability: 0.0015 },
+        display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+        confidenceInputs: FULL_CONFIDENCE,
+        onScreen: true,
+      }, 1)
+      expect(store.getState().focusState).not.toBe('away')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('includes confidence and raw values in session data points', () => {

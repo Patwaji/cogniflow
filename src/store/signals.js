@@ -8,6 +8,7 @@ import useSettingsStore from './settings'
 const ROLLING_FRAMES = 90
 const DISTRACTED_HOLD_MS = 10000
 const FLOW_HOLD_MS = 30000
+const AWAY_HOLD_MS = 4000
 const CEILING_CONFIDENCE_GATE = 0.6
 const CEILING_MAX_EXPANSION = 0.15
 // EMA smoothing constant tuned to match the responsiveness of the prior
@@ -46,6 +47,7 @@ const useSignalsStore = create((set, get) => ({
   rawScore: 0,
   distractedSince: null,
   flowSince: null,
+  awaySince: null,
 
   sessionState: 'idle',
   sessionElapsed: 0,
@@ -106,9 +108,28 @@ const useSignalsStore = create((set, get) => ({
     let focusStateEntryTime = state.focusStateEntryTime
     let distractedSince = state.distractedSince
     let flowSince = state.flowSince
+    let awaySince = state.awaySince
 
     if (focusState !== 'calibrating' && !state.drowsy) {
-      if (smoothedScore < distractedTh) {
+      // Looking away from the screen is not the same as being distracted
+      // (could be reading a book / second reference). Sustained !onScreen
+      // shows a neutral "away" state instead of letting the score free-fall
+      // into red "distracted". Takes precedence over score-based
+      // classification but yields to calibrating/drowsy above.
+      if (!onScreen) {
+        if (awaySince === null) awaySince = now
+      } else {
+        awaySince = null
+      }
+
+      if (awaySince !== null && now - awaySince >= AWAY_HOLD_MS) {
+        if (focusState !== 'away') {
+          focusState = 'away'
+          focusStateEntryTime = now
+        }
+        distractedSince = null
+        flowSince = null
+      } else if (smoothedScore < distractedTh) {
         if (distractedSince === null) {
           distractedSince = now
           if (focusState !== 'normal') {
@@ -174,6 +195,7 @@ const useSignalsStore = create((set, get) => ({
       rawScore,
       distractedSince,
       flowSince,
+      awaySince,
     })
   },
 
@@ -187,6 +209,7 @@ const useSignalsStore = create((set, get) => ({
     indexHistory: [],
     distractedSince: null,
     flowSince: null,
+    awaySince: null,
   }),
 
   setCalibrationProgress: (progress) => set({
@@ -210,6 +233,7 @@ const useSignalsStore = create((set, get) => ({
     indexHistory: [],
     distractedSince: null,
     flowSince: null,
+    awaySince: null,
   }),
 
   setFaceDetected: (detected) => set({
@@ -232,6 +256,7 @@ const useSignalsStore = create((set, get) => ({
         _emaScore: null,
         distractedSince: null,
         flowSince: null,
+        awaySince: null,
       }
     }
     return {}
@@ -252,6 +277,7 @@ const useSignalsStore = create((set, get) => ({
     indexHistory: [],
     distractedSince: null,
     flowSince: null,
+    awaySince: null,
   })),
 
   startSession: () => set({

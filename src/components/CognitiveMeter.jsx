@@ -12,6 +12,7 @@ const STATE_LABELS = {
   focused: 'Focused',
   normal: 'Normal',
   distracted: 'Distracted',
+  away: 'Away',
   calibrating: 'Calibrating',
   drowsy: 'Drowsy',
 }
@@ -21,6 +22,7 @@ const STATE_COLORS = {
   focused: 'var(--color-focused)',
   normal: 'var(--color-text-secondary)',
   distracted: 'var(--color-distracted)',
+  away: 'var(--color-text-secondary)',
   calibrating: 'var(--color-warning)',
   drowsy: 'var(--color-danger)',
 }

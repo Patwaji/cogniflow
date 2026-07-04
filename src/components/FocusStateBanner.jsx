@@ -7,6 +7,7 @@ const STATE_CONFIG = {
   focused: { color: 'var(--color-success)', bg: 'rgba(52, 199, 89, 0.10)', border: 'rgba(52, 199, 89, 0.2)' },
   normal: { color: 'var(--color-text-secondary)', bg: 'transparent', border: 'transparent' },
   distracted: { color: 'var(--color-distracted)', bg: 'rgba(255, 69, 58, 0.10)', border: 'rgba(255, 69, 58, 0.2)' },
+  away: { color: 'var(--color-text-secondary)', bg: 'transparent', border: 'transparent' },
   calibrating: { color: 'var(--color-warning)', bg: 'rgba(255, 159, 10, 0.10)', border: 'rgba(255, 159, 10, 0.2)' },
   drowsy: { color: '#ff3b30', bg: 'rgba(255, 59, 48, 0.15)', border: 'rgba(255, 59, 48, 0.35)' },
 }
@@ -36,6 +37,8 @@ export default function FocusStateBanner() {
     message = 'Focused'
   } else if (focusState === 'distracted') {
     message = 'You seem distracted'
+  } else if (focusState === 'away') {
+    message = 'Looking away'
   } else if (focusState === 'normal') {
     message = ''
   } else if (focusState === 'drowsy') {
