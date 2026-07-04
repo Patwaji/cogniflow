@@ -14,6 +14,9 @@
 }
 
 .settings-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 12px;
   border-radius: var(--radius-md);
   background: var(--color-bg-surface);
@@ -25,6 +28,7 @@
 
 .settings-back:hover {
   color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
 }
 
 .settings-title {
@@ -36,41 +40,49 @@
 .settings-body {
   flex: 1;
   overflow-y: auto;
-  padding: 0 var(--spacing-lg) var(--spacing-lg);
+  padding: 0 var(--spacing-lg) var(--spacing-2xl);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg);
+  gap: var(--spacing-md);
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
 }
 
+/* Each section reads as a card, matching the Insights language */
 .settings-section {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
 }
 
 .settings-section h3 {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 2px;
+  letter-spacing: 0.08em;
 }
 
 .settings-hint {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+  margin-top: -6px;
 }
 
 .settings-slider-row {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
 }
 
 .settings-slider-label {
-  width: 110px;
-  font-size: var(--font-size-xs);
+  width: 104px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   flex-shrink: 0;
 }
@@ -82,29 +94,47 @@
 }
 
 .settings-slider-value {
-  width: 24px;
+  width: 30px;
   text-align: right;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
 }
 
 .settings-number-row {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
 }
 
 .settings-number-label {
-  width: 100px;
-  font-size: var(--font-size-xs);
+  width: 104px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
+  flex-shrink: 0;
 }
 
 .settings-number-input {
-  width: 64px;
+  width: 72px;
+  padding: 7px 10px;
   text-align: center;
   font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Native spinner arrows squeeze the centered value and clip it — remove them */
+.settings-number-input::-webkit-inner-spin-button,
+.settings-number-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .settings-number-hint {
@@ -116,11 +146,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 .settings-toggle-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
 
@@ -130,9 +160,10 @@
   height: 22px;
   border-radius: 11px;
   background: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   cursor: pointer;
   transition: background 0.2s;
+  flex-shrink: 0;
 }
 
 .settings-toggle-on {
@@ -158,22 +189,23 @@
 .settings-select-row {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
 }
 
 .settings-select-label {
-  width: 100px;
-  font-size: var(--font-size-xs);
+  width: 104px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
+  flex-shrink: 0;
 }
 
 .settings-select {
-  padding: 4px 8px;
+  padding: 6px 10px;
   border-radius: var(--radius-md);
   background: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   color: var(--color-text-primary);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   cursor: pointer;
   outline: none;
 }
@@ -185,16 +217,16 @@
 .settings-actions {
   display: flex;
   justify-content: center;
-  padding-top: var(--spacing-sm);
+  padding-top: var(--spacing-xs);
 }
 
 .settings-btn {
-  padding: 8px 20px;
+  padding: 9px 22px;
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .settings-btn:hover {
@@ -204,9 +236,10 @@
 .settings-btn-secondary {
   background: var(--color-bg-surface);
   color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
 }
 
 .settings-btn-secondary:hover {
   color: var(--color-text-primary);
+  border-color: var(--color-text-muted);
 }

@@ -15,8 +15,9 @@ function dayKey(ts) {
 }
 
 function scoreColor(score) {
-  if (score == null) return 'var(--color-bg-surface)'
-  const alpha = 0.14 + 0.86 * (score / 100)
+  // Empty days stay very faint so filled days read as the signal, not noise
+  if (score == null) return 'rgba(255, 255, 255, 0.025)'
+  const alpha = 0.16 + 0.84 * (score / 100)
   return `rgba(123, 122, 240, ${alpha.toFixed(3)})`
 }
 
