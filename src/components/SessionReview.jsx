@@ -2,9 +2,8 @@ import { useMemo, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Check, X } from 'lucide-react'
 import useSignalsStore from '../store/signals'
-import useSettingsStore from '../store/settings'
-import ScoreChart from './ScoreChart'
 import { buildSessionData, findBiggestChangeSegment } from '../lib/sessionData'
+import { buildSessionStory } from '../lib/sessionStory'
 import './SessionReview.css'
 
 function fmtClock(elapsedSec) {
@@ -23,23 +22,16 @@ export default function SessionReview({ onDone }) {
   const startTime = useSignalsStore((s) => s.sessionStartTime)
   const endTime = useSignalsStore((s) => s.sessionEndTime)
   const dataPoints = useSignalsStore((s) => s.sessionDataPoints)
+  const sessionIntention = useSignalsStore((s) => s.sessionIntention)
   const discardSession = useSignalsStore((s) => s.discardSession)
-  const thresholds = useSettingsStore((s) => s.thresholds)
 
   const [answer, setAnswer] = useState(null) // 'yes' | 'no' | null
+  const [retro, setRetro] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(false)
-  const [showRaw, setShowRaw] = useState(false)
 
-  const chartData = useMemo(
-    () =>
-      dataPoints.map((p) => ({
-        elapsed: Math.max(0, Math.round((p.timestamp - startTime) / 1000)),
-        cognitiveScore: p.cognitiveScore,
-        // Fallback to cognitiveScore for older sessions saved before rawScore existed.
-        rawScore: p.rawScore ?? p.cognitiveScore,
-        confidence: p.confidence ?? 0,
-      })),
+  const story = useMemo(
+    () => buildSessionStory(dataPoints, startTime),
     [dataPoints, startTime],
   )
 
@@ -48,15 +40,10 @@ export default function SessionReview({ onDone }) {
     [dataPoints, startTime],
   )
 
-  const stats = useMemo(() => {
-    const scores = dataPoints.map((p) => p.cognitiveScore)
-    const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-    const peak = Math.max(...scores)
-    const low = Math.min(...scores)
-    const focusedSec = dataPoints.filter((p) => p.focusState === 'focused').length * 5
-    const duration = Math.floor((endTime - startTime) / 1000)
-    return { avg, peak, low, focusedSec, duration }
-  }, [dataPoints, startTime, endTime])
+  const duration = useMemo(
+    () => Math.floor((endTime - startTime) / 1000),
+    [startTime, endTime],
+  )
 
   async function handleSave() {
     setSaving(true)
@@ -70,7 +57,13 @@ export default function SessionReview({ onDone }) {
         }
       : null
 
-    const sessionData = buildSessionData({ startTime, endTime, dataPoints, groundTruth })
+    const sessionData = buildSessionData({
+      startTime,
+      endTime,
+      dataPoints,
+      groundTruth,
+      notes: { intention: sessionIntention, retro },
+    })
 
     try {
       await invoke('save_session', { sessionJson: JSON.stringify(sessionData) })
@@ -99,56 +92,76 @@ export default function SessionReview({ onDone }) {
       <div className="review-header">
         <h2 className="review-title">Session review</h2>
         <span className="review-subtitle">
-          {fmtDuration(stats.duration)} &middot; {dataPoints.length} readings
+          {fmtDuration(duration)} &middot; {dataPoints.length} readings
         </span>
       </div>
 
+      {sessionIntention?.trim() && (
+        <p className="review-intention">Working on: {sessionIntention}</p>
+      )}
+
       <div className="review-stats">
         <div className="review-stat">
-          <span className="review-stat-value">{stats.avg}</span>
-          <span className="review-stat-label">Avg load</span>
-        </div>
-        <div className="review-stat">
-          <span className="review-stat-value review-stat-peak">{stats.peak}</span>
-          <span className="review-stat-label">Peak</span>
-        </div>
-        <div className="review-stat">
-          <span className="review-stat-value review-stat-low">{stats.low}</span>
-          <span className="review-stat-label">Lowest</span>
-        </div>
-        <div className="review-stat">
-          <span className="review-stat-value review-stat-flow">
-            {stats.focusedSec ? fmtDuration(stats.focusedSec) : '-'}
+          <span className="review-stat-value review-stat-longest">
+            {fmtDuration(story.longestFocusedStretchSec)}
           </span>
-          <span className="review-stat-label">In flow</span>
+          <span className="review-stat-label">Longest focus</span>
+        </div>
+        <div className="review-stat">
+          <span className="review-stat-value review-stat-focused">
+            {fmtDuration(story.focusedSec)}
+          </span>
+          <span className="review-stat-label">Focused</span>
+        </div>
+        <div className="review-stat">
+          <span className="review-stat-value review-stat-drifts">{story.driftCount}</span>
+          <span className="review-stat-label">Drifts</span>
+        </div>
+        <div className="review-stat">
+          <span className="review-stat-value review-stat-drowsy">{story.drowsyCount}</span>
+          <span className="review-stat-label">Drowsy</span>
         </div>
       </div>
 
-      <div className="review-chart">
-        <div className="review-chart-toolbar">
-          <div className="review-chart-toggle">
-            <button
-              className={`review-chip review-chip-sm${!showRaw ? ' active' : ''}`}
-              onClick={() => setShowRaw(false)}
-            >
-              Smoothed
-            </button>
-            <button
-              className={`review-chip review-chip-sm${showRaw ? ' active' : ''}`}
-              onClick={() => setShowRaw(true)}
-            >
-              Raw
-            </button>
-          </div>
+      <div className="review-timeline" aria-label="Session timeline">
+        {story.segments.map((seg, i) => {
+          const total = story.segments[story.segments.length - 1]?.endElapsed || 1
+          const width = ((seg.endElapsed - seg.startElapsed) / total) * 100
+          return (
+            <div
+              key={i}
+              className={`review-seg review-seg-${seg.state}`}
+              style={{ width: `${width}%` }}
+              title={`${seg.state} · ${Math.round(seg.durationSec)}s`}
+            />
+          )
+        })}
+      </div>
+      <div className="review-legend">
+        <span><i className="dot dot-focused" /> Focused</span>
+        <span><i className="dot dot-drifting" /> Drifting</span>
+        <span><i className="dot dot-drowsy" /> Drowsy</span>
+        <span><i className="dot dot-away" /> Away</span>
+      </div>
+
+      {story.takeaway && (
+        <div className="review-takeaway">
+          <span className="review-takeaway-label">Try this next</span>
+          <p className="review-takeaway-text">{story.takeaway}</p>
         </div>
-        <ScoreChart
-          data={chartData}
-          thresholds={thresholds}
-          highlight={segment}
-          height={280}
-          gradientId="review-grad"
-          scoreKey={showRaw ? 'rawScore' : 'cognitiveScore'}
-          showConfidenceLane
+      )}
+
+      <div className="review-retro">
+        <label className="review-retro-label" htmlFor="review-retro-input">
+          How did it go? (optional)
+        </label>
+        <textarea
+          id="review-retro-input"
+          className="review-retro-input"
+          value={retro}
+          onChange={(e) => setRetro(e.target.value)}
+          placeholder="Anything worth remembering for next time..."
+          rows={3}
         />
       </div>
 

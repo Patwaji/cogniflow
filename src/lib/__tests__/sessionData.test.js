@@ -32,6 +32,14 @@ describe('buildSessionData', () => {
     expect(s.summary.avgConfidence).toBeCloseTo(0.8, 2)
     expect(s.duration).toBe(15)
     expect(s.groundTruth).toBe(gt)
+    expect(s.notes).toBeNull()
+  })
+
+  it('carries optional notes (intention + retro)', () => {
+    const dataPoints = [pt(0, 40, 'focused'), pt(5, 45, 'focused')]
+    const notes = { intention: 'Write the report', retro: 'Went well' }
+    const s = buildSessionData({ startTime: START, endTime: START + 10000, dataPoints, notes })
+    expect(s.notes).toEqual(notes)
   })
 })
 

@@ -1,10 +1,12 @@
 // Builds the persisted session payload from the in-memory session points.
 // Shared so the post-session review and any other saver produce identical
 // on-disk shape. `groundTruth` is optional retrospective validation.
+// `notes` is an optional { intention, retro } pair captured before/after the
+// session (the After-Action-Review bookends).
 
 import { buildSessionStory } from './sessionStory'
 
-export function buildSessionData({ startTime, endTime, dataPoints, groundTruth = null }) {
+export function buildSessionData({ startTime, endTime, dataPoints, groundTruth = null, notes = null }) {
   const scores = dataPoints.map((p) => p.cognitiveScore)
   const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
 
@@ -37,6 +39,7 @@ export function buildSessionData({ startTime, endTime, dataPoints, groundTruth =
     duration: Math.floor((endTime - startTime) / 1000),
     dataPoints,
     groundTruth,
+    notes,
     summary: {
       avgScore,
       avgConfidence,
