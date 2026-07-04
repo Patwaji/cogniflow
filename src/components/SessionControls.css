@@ -16,7 +16,11 @@
 
 .session-buttons {
   display: flex;
+  flex-direction: column;
   gap: var(--spacing-sm);
+  align-items: center;
+  width: 100%;
+  max-width: 300px;
 }
 
 .session-btn {
@@ -64,6 +68,26 @@
 .session-btn-ghost:hover {
   color: var(--color-text-primary);
   border-color: var(--color-border-strong);
+}
+
+.session-intention {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.session-intention::placeholder {
+  color: var(--color-text-muted);
+}
+
+.session-intention:focus {
+  outline: none;
+  border-color: var(--color-accent);
 }
 
 .session-save-stats {

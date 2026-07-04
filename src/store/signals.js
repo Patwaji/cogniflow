@@ -51,6 +51,7 @@ const useSignalsStore = create(subscribeWithSelector((set, get) => ({
   sessionStartTime: null,
   sessionDataPoints: [],
   sessionEndTime: null,
+  sessionIntention: '',
 
   updateSignals: ({ raw, display, confidenceInputs, onScreen = true }) => {
     const state = get()
@@ -278,11 +279,14 @@ const useSignalsStore = create(subscribeWithSelector((set, get) => ({
     }
   }),
 
+  setSessionIntention: (text) => set({ sessionIntention: text }),
+
   discardSession: () => set({
     sessionDataPoints: [],
     sessionElapsed: 0,
     sessionStartTime: null,
     sessionEndTime: null,
+    sessionIntention: '',
   }),
 
   tickSession: () => set((state) => {

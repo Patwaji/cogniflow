@@ -5,7 +5,9 @@ import './SessionControls.css'
 export default function SessionControls({ onHistory, onSettings, onTrends }) {
   const sessionState = useSignalsStore((s) => s.sessionState)
   const sessionElapsed = useSignalsStore((s) => s.sessionElapsed)
+  const sessionIntention = useSignalsStore((s) => s.sessionIntention)
   const startSession = useSignalsStore((s) => s.startSession)
+  const setSessionIntention = useSignalsStore((s) => s.setSessionIntention)
   const pauseSession = useSignalsStore((s) => s.pauseSession)
   const resumeSession = useSignalsStore((s) => s.resumeSession)
   const stopSession = useSignalsStore((s) => s.stopSession)
@@ -34,6 +36,14 @@ export default function SessionControls({ onHistory, onSettings, onTrends }) {
       <div className="session-buttons">
         {sessionState === 'idle' && (
           <>
+            <input
+              className="session-intention"
+              type="text"
+              value={sessionIntention}
+              onChange={(e) => setSessionIntention(e.target.value)}
+              placeholder="What are you working on? (optional)"
+              maxLength={80}
+            />
             <button className="session-btn session-btn-primary" onClick={startSession}>
               Start session
             </button>
