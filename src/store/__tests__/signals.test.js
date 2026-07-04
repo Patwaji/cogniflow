@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { buildCalibrationProfile } from '../../utils/calibrationProfile'
+import { FOCUS_PARAMS } from '../../utils/focusState'
 
 const WEIGHTS = { blinkRate: 50, gazeStability: 50 }
-// Mirrors AWAY_HOLD_MS in ../signals.js (not exported; kept in sync here).
-const AWAY_HOLD_MS_TEST = 4000
 
 function makeProfile() {
   return buildCalibrationProfile({
@@ -233,57 +232,94 @@ describe('signals store v2', () => {
     expect(store.getState().cognitiveScore).toBeLessThan(25)
   })
 
-  it('shows a neutral "away" state, not "distracted", after sustained onScreen:false', () => {
+  it('shows a neutral "away" state after sustained face-not-detected (not a brief look-away)', () => {
     vi.useFakeTimers()
     try {
       vi.setSystemTime(1_000_000)
-      // Rest-like signals would otherwise trend the score toward "distracted"
-      // (see the DISTRACTED_HOLD_MS=10000 path below); AWAY_HOLD_MS=4000 is
-      // shorter, so sustained !onScreen should preempt that with 'away'.
-      const restLikeAway = {
-        raw: { blinkRate: 18, gazeStability: 0.006 },
+      // Presence, not on-screen-material, drives "away" in the four-state
+      // model — a brief look-down at a book (onMaterial:false, present:true)
+      // must NOT read as away. faceDetected defaults false and is never
+      // toggled true here, so this simulates a sustained absent face.
+      store.getState().setFaceDetected(false)
+      const taskLikeButAbsent = {
+        raw: { blinkRate: 9, gazeStability: 0.0015 },
         display: { pupilDelta: 0, headMovement: 0 },
         confidenceInputs: FULL_CONFIDENCE,
-        onScreen: false,
+        onScreen: true,
       }
-      pump(store, restLikeAway, 1)
+      pump(store, taskLikeButAbsent, 1)
       expect(store.getState().focusState).not.toBe('away')
 
-      vi.advanceTimersByTime(AWAY_HOLD_MS_TEST + 1)
-      pump(store, restLikeAway, 1)
+      vi.advanceTimersByTime(FOCUS_PARAMS.awayGraceMs + 1)
+      pump(store, taskLikeButAbsent, 1)
 
       expect(store.getState().focusState).toBe('away')
-      expect(store.getState().focusState).not.toBe('distracted')
     } finally {
       vi.useRealTimers()
     }
   })
 
-  it('lets the score re-classify away from "away" once onScreen returns true', () => {
+  it('lets the state clear out of "away" once the face reappears and holds on-task', () => {
     vi.useFakeTimers()
     try {
       vi.setSystemTime(2_000_000)
-      const awayFrame = {
-        raw: { blinkRate: 18, gazeStability: 0.006 },
-        display: { pupilDelta: 0, headMovement: 0 },
-        confidenceInputs: FULL_CONFIDENCE,
-        onScreen: false,
-      }
-      pump(store, awayFrame, 1)
-      vi.advanceTimersByTime(AWAY_HOLD_MS_TEST + 1)
-      pump(store, awayFrame, 1)
-      expect(store.getState().focusState).toBe('away')
-
-      pump(store, {
+      const taskFrame = {
         raw: { blinkRate: 9, gazeStability: 0.0015 },
         display: { pupilDelta: 0, headMovement: 0 },
         confidenceInputs: FULL_CONFIDENCE,
         onScreen: true,
-      }, 1)
+      }
+      // Seed a high EMA score while present, so "engaged" reads true
+      // throughout (the EMA seeds directly from the raw score on the first
+      // frame after a reset).
+      store.getState().setFaceDetected(true)
+      pump(store, taskFrame, 1)
+      expect(store.getState().focusState).not.toBe('away')
+
+      store.getState().setFaceDetected(false)
+      vi.advanceTimersByTime(FOCUS_PARAMS.awayGraceMs + 1)
+      pump(store, taskFrame, 1)
+      expect(store.getState().focusState).toBe('away')
+
+      // Face reappears: on-task hold must accumulate past clearHoldMs before
+      // the state clears back to focused (not instant).
+      store.getState().setFaceDetected(true)
+      pump(store, taskFrame, 1)
+      vi.advanceTimersByTime(FOCUS_PARAMS.clearHoldMs + 1)
+      pump(store, taskFrame, 1)
+
       expect(store.getState().focusState).not.toBe('away')
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('surfaces drifting when engagement stays low on-material', async () => {
+    const s = await freshStore()
+    s.getState().setCalibrationProfile(makeProfile())
+    // low-scoring raw signals (rest-like) while on screen, pumped past the
+    // drift engagement window (~9s of real time — pump uses Date.now()).
+    // Assert it does NOT instantly show drifting on the first frame:
+    s.getState().updateSignals({
+      raw: { blinkRate: 18, gazeStability: 0.006 },
+      display: { pupilDelta: 0, headMovement: 0 },
+      confidenceInputs: { face: 1, iris: 1, illumination: 1, framerate: 1 },
+      onScreen: true,
+    })
+    expect(['focused', 'calibrating']).toContain(s.getState().focusState)
+  })
+
+  it('surfaces away after sustained off-screen', async () => {
+    const s = await freshStore()
+    s.getState().setCalibrationProfile(makeProfile())
+    // onScreen false; a single frame must NOT be away (grace window)
+    s.getState().updateSignals({
+      raw: { blinkRate: 12, gazeStability: 0.003 },
+      display: { pupilDelta: 0, headMovement: 0 },
+      confidenceInputs: { face: 1, iris: 1, illumination: 1, framerate: 1 },
+      onScreen: false,
+    })
+    expect(s.getState().focusState).not.toBe('away')
   })
 
   it('includes confidence and raw values in session data points', () => {

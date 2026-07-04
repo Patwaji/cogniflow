@@ -3,12 +3,10 @@ import { computeEngagementScore, expandCeiling, emaNext } from '../utils/engagem
 import { reweightProfile } from '../utils/calibrationProfile'
 import { computeConfidence } from '../utils/confidenceModel'
 import { recordSessionSummary } from '../utils/profileHistory'
+import { createFocusMachine, stepFocusMachine, FOCUS_STATES } from '../utils/focusState'
 import useSettingsStore from './settings'
 
 const ROLLING_FRAMES = 90
-const DISTRACTED_HOLD_MS = 10000
-const FLOW_HOLD_MS = 30000
-const AWAY_HOLD_MS = 4000
 const CEILING_CONFIDENCE_GATE = 0.6
 const CEILING_MAX_EXPANSION = 0.15
 // EMA smoothing constant tuned to match the responsiveness of the prior
@@ -38,16 +36,14 @@ const useSignalsStore = create((set, get) => ({
   calibrationArmed: false,
 
   cognitiveScore: 0,
-  focusState: 'calibrating',
+  focusState: FOCUS_STATES.CALIBRATING,
   focusStateEntryTime: Date.now(),
   onScreen: true,
   drowsy: false,
 
   _emaScore: null,
   rawScore: 0,
-  distractedSince: null,
-  flowSince: null,
-  awaySince: null,
+  _focusMachine: null,
 
   sessionState: 'idle',
   sessionElapsed: 0,
@@ -99,80 +95,22 @@ const useSignalsStore = create((set, get) => ({
       profile = expandCeiling(profile, target)
     }
 
-    const t = settings.thresholds
-    const distractedTh = t.distracted ?? 20
-    const focusedTh = t.focused
-    const flowTh = t.flow
-
-    let focusState = state.focusState
-    let focusStateEntryTime = state.focusStateEntryTime
-    let distractedSince = state.distractedSince
-    let flowSince = state.flowSince
-    let awaySince = state.awaySince
-
-    if (focusState !== 'calibrating' && !state.drowsy) {
-      // Looking away from the screen is not the same as being distracted
-      // (could be reading a book / second reference). Sustained !onScreen
-      // shows a neutral "away" state instead of letting the score free-fall
-      // into red "distracted". Takes precedence over score-based
-      // classification but yields to calibrating/drowsy above.
-      if (!onScreen) {
-        if (awaySince === null) awaySince = now
-      } else {
-        awaySince = null
-      }
-
-      if (awaySince !== null && now - awaySince >= AWAY_HOLD_MS) {
-        if (focusState !== 'away') {
-          focusState = 'away'
-          focusStateEntryTime = now
-        }
-        distractedSince = null
-        flowSince = null
-      } else if (smoothedScore < distractedTh) {
-        if (distractedSince === null) {
-          distractedSince = now
-          if (focusState !== 'normal') {
-            focusState = 'normal'
-            focusStateEntryTime = now
-          }
-        }
-        const newState = (now - distractedSince >= DISTRACTED_HOLD_MS) ? 'distracted' : 'normal'
-        if (newState !== focusState) {
-          focusState = newState
-          focusStateEntryTime = now
-        }
-        flowSince = null
-      } else if (smoothedScore < focusedTh) {
-        if (focusState !== 'normal') {
-          focusState = 'normal'
-          focusStateEntryTime = now
-        }
-        distractedSince = null
-        flowSince = null
-      } else if (smoothedScore < flowTh) {
-        if (focusState !== 'focused') {
-          focusState = 'focused'
-          focusStateEntryTime = now
-        }
-        distractedSince = null
-        flowSince = null
-      } else {
-        if (flowSince === null) {
-          flowSince = now
-          if (focusState !== 'focused') {
-            focusState = 'focused'
-            focusStateEntryTime = now
-          }
-        }
-        const newState = (now - flowSince >= FLOW_HOLD_MS) ? 'flow' : 'focused'
-        if (newState !== focusState) {
-          focusState = newState
-          focusStateEntryTime = now
-        }
-        distractedSince = null
-      }
-    }
+    // Drive the formal four-state focus model. Inputs are plain booleans
+    // derived from the reliable signals; the reducer owns all hysteresis.
+    const focusedTh = settings.thresholds.focused ?? 55
+    const machine = state._focusMachine ?? createFocusMachine(now)
+    const { state: focusState, since: focusStateEntryTime } = stepFocusMachine(
+      machine,
+      {
+        present: state.faceDetected,
+        onMaterial: onScreen,
+        drowsy: state.drowsy,
+        engaged: smoothedScore >= focusedTh,
+        confidence,
+        calibrating: state.isCalibrating,
+      },
+      now,
+    )
 
     set({
       blinkRate: normalized.blinkRate ?? 0,
@@ -193,9 +131,7 @@ const useSignalsStore = create((set, get) => ({
       focusStateEntryTime,
       _emaScore: nextEmaScore,
       rawScore,
-      distractedSince,
-      flowSince,
-      awaySince,
+      _focusMachine: machine,
     })
   },
 
@@ -203,13 +139,10 @@ const useSignalsStore = create((set, get) => ({
     isCalibrating: val,
     calibrationProgress: val ? 0 : 100,
     calibrationPhase: val ? 'rest' : null,
-    focusState: val ? 'calibrating' : 'normal',
-    focusStateEntryTime: Date.now(),
+    ...(val ? { focusState: FOCUS_STATES.CALIBRATING, focusStateEntryTime: Date.now() } : {}),
     _emaScore: null,
     indexHistory: [],
-    distractedSince: null,
-    flowSince: null,
-    awaySince: null,
+    _focusMachine: null,
   }),
 
   setCalibrationProgress: (progress) => set({
@@ -227,13 +160,9 @@ const useSignalsStore = create((set, get) => ({
     isCalibrating: false,
     calibrationProgress: 100,
     calibrationPhase: null,
-    focusState: 'normal',
-    focusStateEntryTime: Date.now(),
     _emaScore: null,
     indexHistory: [],
-    distractedSince: null,
-    flowSince: null,
-    awaySince: null,
+    _focusMachine: null,
   }),
 
   setFaceDetected: (detected) => set({
@@ -244,19 +173,13 @@ const useSignalsStore = create((set, get) => ({
     if (val && !state.drowsy) {
       return {
         drowsy: true,
-        focusState: 'drowsy',
-        focusStateEntryTime: Date.now(),
+        _focusMachine: null,
       }
     }
     if (!val && state.drowsy) {
       return {
         drowsy: false,
-        focusState: 'normal',
-        focusStateEntryTime: Date.now(),
-        _emaScore: null,
-        distractedSince: null,
-        flowSince: null,
-        awaySince: null,
+        _focusMachine: null,
       }
     }
     return {}
@@ -271,13 +194,11 @@ const useSignalsStore = create((set, get) => ({
     calibrationPhase: 'rest',
     calibrationProfile: null,
     _originalCeilingW: null,
-    focusState: 'calibrating',
+    focusState: FOCUS_STATES.CALIBRATING,
     focusStateEntryTime: Date.now(),
     _emaScore: null,
     indexHistory: [],
-    distractedSince: null,
-    flowSince: null,
-    awaySince: null,
+    _focusMachine: null,
   })),
 
   startSession: () => set({
