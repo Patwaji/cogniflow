@@ -38,7 +38,7 @@ describe('signals store v2', () => {
   it('scores high for task-like raw signals', () => {
     pump(store, {
       raw: { blinkRate: 9, gazeStability: 0.0015 },
-      display: { pupilDelta: 0.5, browFurrow: 0.5, headMovement: 0.2 },
+      display: { pupilDelta: 0.5, headMovement: 0.2 },
       confidenceInputs: FULL_CONFIDENCE,
       onScreen: true,
     }, 30)
@@ -48,7 +48,7 @@ describe('signals store v2', () => {
   it('scores low for rest-like raw signals', () => {
     pump(store, {
       raw: { blinkRate: 18, gazeStability: 0.006 },
-      display: { pupilDelta: 0.5, browFurrow: 0.5, headMovement: 0.2 },
+      display: { pupilDelta: 0.5, headMovement: 0.2 },
       confidenceInputs: FULL_CONFIDENCE,
       onScreen: true,
     }, 30)
@@ -58,7 +58,7 @@ describe('signals store v2', () => {
   it('stores normalized display values under the panel keys', () => {
     pump(store, {
       raw: { blinkRate: 9, gazeStability: 0.0015 },
-      display: { pupilDelta: 0.4, browFurrow: 0.6, headMovement: 0.1 },
+      display: { pupilDelta: 0.4, headMovement: 0.1 },
       confidenceInputs: FULL_CONFIDENCE,
       onScreen: true,
     })
@@ -66,14 +66,60 @@ describe('signals store v2', () => {
     expect(s.blinkRate).toBeGreaterThan(0.8) // normalized load contribution
     expect(s.gazeStability).toBeGreaterThan(0.8)
     expect(s.pupilDelta).toBe(0.4)
-    expect(s.browFurrow).toBe(0.6)
     expect(s.headMovement).toBe(0.1)
+  })
+
+  it('scores browFurrow from raw against the calibration boundary (not from display)', () => {
+    // A profile with brow samples: rest is relaxed (higher ratio), task is
+    // furrowed (lower ratio) — mirrors direction -1 in SIGNAL_DIRECTIONS.
+    store.getState().setCalibrationProfile(buildCalibrationProfile({
+      rest: { gazeSamples: Array.from({ length: 200 }, (_, i) => 0.005 + (i % 10) * 0.0002), blinkRatePerMin: 18 },
+      task: { gazeSamples: Array.from({ length: 200 }, (_, i) => 0.0015 + (i % 10) * 0.0001), blinkRatePerMin: 9 },
+      weights: { blinkRate: 40, gazeStability: 35, browFurrow: 25 },
+      faceDetectionRate: 1,
+      now: 1,
+      browSamples: {
+        rest: Array.from({ length: 20 }, () => 0.5),
+        task: Array.from({ length: 20 }, () => 0.3),
+      },
+    }))
+
+    // raw.browFurrow at the furrowed (task) anchor → near-max normalized load.
+    pump(store, {
+      raw: { blinkRate: 9, gazeStability: 0.0015, browFurrow: 0.3 },
+      display: { pupilDelta: 0, headMovement: 0 },
+      confidenceInputs: FULL_CONFIDENCE,
+      onScreen: true,
+    })
+    expect(store.getState().browFurrow).toBeGreaterThan(0.8)
+
+    // raw.browFurrow at the relaxed (rest) anchor → near-zero normalized load.
+    pump(store, {
+      raw: { blinkRate: 9, gazeStability: 0.0015, browFurrow: 0.5 },
+      display: { pupilDelta: 0, headMovement: 0 },
+      confidenceInputs: FULL_CONFIDENCE,
+      onScreen: true,
+    })
+    expect(store.getState().browFurrow).toBeLessThan(0.2)
+  })
+
+  it('defaults browFurrow to 0 when raw carries no brow reading', () => {
+    // No raw.browFurrow at all (e.g. a caller that hasn't wired brow yet) →
+    // normalizeSignal is never invoked for that key, so normalized.browFurrow
+    // stays undefined and the store falls back to 0.
+    pump(store, {
+      raw: { blinkRate: 9, gazeStability: 0.0015 },
+      display: { pupilDelta: 0, headMovement: 0 },
+      confidenceInputs: FULL_CONFIDENCE,
+      onScreen: true,
+    })
+    expect(store.getState().browFurrow).toBe(0)
   })
 
   it('computes confidence including calibration quality', () => {
     pump(store, {
       raw: { blinkRate: 12, gazeStability: 0.003 },
-      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      display: { pupilDelta: 0, headMovement: 0 },
       confidenceInputs: { face: 1, iris: 1, illumination: 1, framerate: 1 },
       onScreen: true,
     })
@@ -88,7 +134,7 @@ describe('signals store v2', () => {
     // gaze steadier than its boundary min → index 1.0
     pump(store, {
       raw: { blinkRate: 4, gazeStability: 0.0001 },
-      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      display: { pupilDelta: 0, headMovement: 0 },
       confidenceInputs: FULL_CONFIDENCE,
       onScreen: true,
     }, 120)
@@ -101,7 +147,7 @@ describe('signals store v2', () => {
     const before = store.getState().calibrationProfile.ceilingW
     pump(store, {
       raw: { blinkRate: 4, gazeStability: 0.0001 },
-      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      display: { pupilDelta: 0, headMovement: 0 },
       confidenceInputs: { face: 0.2, iris: 0.2, illumination: 0.2, framerate: 0.2 }, // low
       onScreen: true,
     }, 120)
@@ -112,7 +158,7 @@ describe('signals store v2', () => {
     const before = store.getState().calibrationProfile.ceilingW
     pump(store, {
       raw: { blinkRate: 4, gazeStability: 0.0001 },
-      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      display: { pupilDelta: 0, headMovement: 0 },
       confidenceInputs: { face: 1, iris: 1, illumination: 1, framerate: 1 },
       onScreen: true,
     }, 300)
@@ -125,7 +171,7 @@ describe('signals store v2', () => {
     const virgin = await freshStore()
     virgin.getState().updateSignals({
       raw: { blinkRate: 9, gazeStability: 0.001 },
-      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      display: { pupilDelta: 0, headMovement: 0 },
       confidenceInputs: FULL_CONFIDENCE,
       onScreen: true,
     })
@@ -142,7 +188,7 @@ describe('signals store v2', () => {
   it('converges cognitiveScore toward the steady-state raw score via EMA', () => {
     pump(store, {
       raw: { blinkRate: 9, gazeStability: 0.0015 },
-      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      display: { pupilDelta: 0, headMovement: 0 },
       confidenceInputs: FULL_CONFIDENCE,
       onScreen: true,
     }, 200)
@@ -153,7 +199,7 @@ describe('signals store v2', () => {
   it('exposes the unsmoothed rawScore alongside the EMA-smoothed cognitiveScore', () => {
     pump(store, {
       raw: { blinkRate: 12, gazeStability: 0.003 },
-      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      display: { pupilDelta: 0, headMovement: 0 },
       confidenceInputs: FULL_CONFIDENCE,
       onScreen: true,
     }, 1)
@@ -166,7 +212,7 @@ describe('signals store v2', () => {
     // Drive the score toward the task end.
     pump(store, {
       raw: { blinkRate: 9, gazeStability: 0.0015 },
-      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      display: { pupilDelta: 0, headMovement: 0 },
       confidenceInputs: FULL_CONFIDENCE,
       onScreen: true,
     }, 60)
@@ -180,7 +226,7 @@ describe('signals store v2', () => {
     // the pre-reset high score forward, this frame would land far above 25.
     pump(store, {
       raw: { blinkRate: 18, gazeStability: 0.006 },
-      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      display: { pupilDelta: 0, headMovement: 0 },
       confidenceInputs: FULL_CONFIDENCE,
       onScreen: true,
     }, 1)
@@ -196,7 +242,7 @@ describe('signals store v2', () => {
       // shorter, so sustained !onScreen should preempt that with 'away'.
       const restLikeAway = {
         raw: { blinkRate: 18, gazeStability: 0.006 },
-        display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+        display: { pupilDelta: 0, headMovement: 0 },
         confidenceInputs: FULL_CONFIDENCE,
         onScreen: false,
       }
@@ -219,7 +265,7 @@ describe('signals store v2', () => {
       vi.setSystemTime(2_000_000)
       const awayFrame = {
         raw: { blinkRate: 18, gazeStability: 0.006 },
-        display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+        display: { pupilDelta: 0, headMovement: 0 },
         confidenceInputs: FULL_CONFIDENCE,
         onScreen: false,
       }
@@ -230,7 +276,7 @@ describe('signals store v2', () => {
 
       pump(store, {
         raw: { blinkRate: 9, gazeStability: 0.0015 },
-        display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+        display: { pupilDelta: 0, headMovement: 0 },
         confidenceInputs: FULL_CONFIDENCE,
         onScreen: true,
       }, 1)
@@ -243,7 +289,7 @@ describe('signals store v2', () => {
   it('includes confidence and raw values in session data points', () => {
     pump(store, {
       raw: { blinkRate: 9, gazeStability: 0.0015 },
-      display: { pupilDelta: 0, browFurrow: 0, headMovement: 0 },
+      display: { pupilDelta: 0, headMovement: 0 },
       confidenceInputs: FULL_CONFIDENCE,
       onScreen: true,
     }, 5)

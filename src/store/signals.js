@@ -178,7 +178,7 @@ const useSignalsStore = create((set, get) => ({
       blinkRate: normalized.blinkRate ?? 0,
       gazeStability: normalized.gazeStability ?? 0,
       pupilDelta: display.pupilDelta,
-      browFurrow: display.browFurrow,
+      browFurrow: normalized.browFurrow ?? 0,
       headMovement: display.headMovement,
       onScreen,
       rawSignals: raw,

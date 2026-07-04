@@ -8,7 +8,7 @@ import { setLatestLandmarks } from '../utils/latestLandmarks'
 import {
   calculateEAR,
   calculateIrisRadius,
-  calculateBrowDistance,
+  calculateBrowRatio,
   calculateIrisCentroid,
   calculateGazeRatio,
   getNoseTip,
@@ -47,8 +47,8 @@ function makeCalibState() {
   return {
     phase: 'rest',
     phaseStart: null,
-    rest: { gazeSamples: [], earSamples: [], blinks: 0, irisRadiusSum: 0, browDistSum: 0, frames: 0 },
-    task: { gazeSamples: [], blinks: 0 },
+    rest: { gazeSamples: [], earSamples: [], blinks: 0, irisRadiusSum: 0, frames: 0, browSamples: [] },
+    task: { gazeSamples: [], blinks: 0, browSamples: [] },
     blinkRateSamples: [], // rolling blinks/min sampled across both phases, for percentile boundaries
     framesTotal: 0,
     framesWithFace: 0,
@@ -87,8 +87,9 @@ export default function CameraFeed() {
   const calib = useRef(null) // null → not started; see makeCalibState()
   const calibrationDone = useRef(false)
 
-  // Display-only baselines (pupilDelta/browFurrow panels), captured during rest
-  const displayBaseline = useRef({ avgIrisRadius: null, avgBrowDist: null })
+  // Display-only baseline (pupilDelta panel), captured during rest. browFurrow
+  // is now scored against the calibration profile's boundaries instead.
+  const displayBaseline = useRef({ avgIrisRadius: null })
 
   // Confidence inputs
   const faceHistory = useRef([])      // 1|0 per processed frame
@@ -166,7 +167,7 @@ export default function CameraFeed() {
   useEffect(() => {
     calib.current = null
     calibrationDone.current = false
-    displayBaseline.current = { avgIrisRadius: null, avgBrowDist: null }
+    displayBaseline.current = { avgIrisRadius: null }
   }, [recalibrateTick])
 
   useEffect(() => {
@@ -270,7 +271,7 @@ export default function CameraFeed() {
     const irisRadiusL = calculateIrisRadius(landmarks, LEFT_IRIS_IDS)
     const irisRadiusR = calculateIrisRadius(landmarks, RIGHT_IRIS_IDS)
     const avgIrisRadius = (irisRadiusL + irisRadiusR) / 2
-    const browDist = calculateBrowDistance(landmarks)
+    const browRatio = calculateBrowRatio(landmarks)
     const irisCentroid = calculateIrisCentroid(landmarks)
     const noseTip = getNoseTip(landmarks)
 
@@ -339,14 +340,13 @@ export default function CameraFeed() {
     if (!calibrationDone.current) {
       const armed = useSettingsStore.getState().onboardingDone || useSignalsStore.getState().calibrationArmed
       if (!armed) return
-      runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browDist, ear, blinkRatePerMin })
+      runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browRatio, ear, blinkRatePerMin })
       return
     }
 
     const baseline = displayBaseline.current
     const display = {
       pupilDelta: clamp01((avgIrisRadius / baseline.avgIrisRadius - 0.95) / 0.1),
-      browFurrow: clamp01((baseline.avgBrowDist - browDist) / (baseline.avgBrowDist * 0.15 + 0.001)),
       headMovement: clamp01(Math.min(pointVariance(headHistory.current) / 0.005, 1)),
     }
 
@@ -364,14 +364,14 @@ export default function CameraFeed() {
     const engagement = estimateScreenEngagement(landmarks)
 
     updateSignals({
-      raw: { blinkRate: blinkRatePerMin, gazeStability: gazeJitter },
+      raw: { blinkRate: blinkRatePerMin, gazeStability: gazeJitter, browFurrow: browRatio },
       display,
       confidenceInputs,
       onScreen: engagement > 0.3,
     })
   }
 
-  function runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browDist, ear, blinkRatePerMin }) {
+  function runCalibration({ now, gazeJitter, blinked, avgIrisRadius, browRatio, ear, blinkRatePerMin }) {
     if (!calib.current) {
       calib.current = makeCalibState()
       setCalibration(true)
@@ -392,11 +392,11 @@ export default function CameraFeed() {
     if (phaseElapsed > CALIB_SETTLE_MS) {
       const bucket = c[c.phase]
       bucket.gazeSamples.push(gazeJitter)
+      bucket.browSamples.push(browRatio)
       if (blinked) bucket.blinks++
       c.blinkRateSamples.push(blinkRatePerMin)
       if (c.phase === 'rest') {
         bucket.irisRadiusSum += avgIrisRadius
-        bucket.browDistSum += browDist
         bucket.frames++
         bucket.earSamples.push(ear)
       }
@@ -424,7 +424,6 @@ export default function CameraFeed() {
 
     displayBaseline.current = {
       avgIrisRadius: c.rest.irisRadiusSum / c.rest.frames,
-      avgBrowDist: c.rest.browDistSum / c.rest.frames,
     }
 
     const profile = buildCalibrationProfile({
@@ -435,6 +434,7 @@ export default function CameraFeed() {
       now,
       restEarSamples: c.rest.earSamples,
       blinkRateSamples: c.blinkRateSamples,
+      browSamples: { rest: c.rest.browSamples, task: c.task.browSamples },
     })
 
     calibrationDone.current = true
