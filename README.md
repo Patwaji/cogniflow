@@ -99,8 +99,8 @@ CogniFlow is a personal reflection aid, not a measurement instrument. A webcam s
 
 ## License
 
+- **Code:** [MIT](LICENSE) © 2026 Suryansh Patwa.
 - **Paper:** CC BY 4.0 (see above).
-- **Code:** © 2026 Suryansh Patwa. Add a `LICENSE` file (e.g. MIT) if you want to permit reuse of the source.
 
 ## Author
 
