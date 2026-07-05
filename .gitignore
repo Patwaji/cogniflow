@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# CogniFlow: local planning docs + research paper (kept locally, never committed)
+docs/
+RESEARCH_PAPER.*
+.devmate/
